@@ -1,3 +1,166 @@
+$hero-height: 800px;
+$hero-height-mobile: 600px;
+$white: #FFFFFF;
+$color-primary: lighten(#ED6B3A, 2%);
+$color-secondary: #8F94B0;
+$font-color: #111111;
+
+body {
+	font-family: 'Roboto', sans-serif;
+	font-size: 1.1rem;
+	font-weight: 300;
+	color: $font-color;
+}
+
+h1, h2, h3, h4, h5, h6 {
+	margin: 0;
+}
+
+h1 {
+	font-weight: 500;
+	font-family: 'Ubuntu', sans-serif;
+	font-size: 3.5rem;
+	line-height: 3.5rem;
+	text-transform: capitalize;
+	.subheader {
+		font-size: 2.25rem;
+		display: block;
+	}
+}
+
+a {
+	color: darken($color-secondary, 20%);
+}
+
+p {
+	margin: 0;
+}
+
+.btn {
+	background-color: $color-primary;
+	color: $white;
+	padding: 10px 40px;
+	border-radius: 4px;
+	text-transform: uppercase;
+	&:hover {
+		background-color: darken($color-primary, 7%);
+		color: $white;
+	}
+}
+
 header {
-	display: none;
+	padding: 20px 0;
+	.logo {
+		img {
+			width: 275px
+		}
+	}
+	nav.main-nav {
+		display: none;
+		float: right;
+		margin: 1px 0 0 0;
+		ul {
+			list-style: none;
+			margin: 0;
+			padding: 0;
+			li {
+				display: inline-block;
+				vertical-align: middle;
+				a:not(.btn) {
+					padding: 0 5px 12px 5px;
+					margin: 0 0 0 10px;
+					text-decoration: none;
+					text-transform: uppercase;
+					font-family: 'Ubuntu', sans-serif;
+					font-size: 1rem;
+					color: $font-color;
+					transition: border-width 0.15s linear;
+					&:hover {
+						border-bottom: solid 4px $color-primary;
+					}
+				}
+				.btn {
+					margin: 0 0 0 20px;
+				}
+			}
+		}
+	}
+}
+
+.hero {
+	background: url(../images/Backyard-Circled-in-prayer.jpg);
+	height: $hero-height-mobile;
+	background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    position: relative;
+    .hero-cover {
+    	background-color: #000;
+    	opacity: 0.65;
+    	height: $hero-height-mobile;
+    	position: absolute;
+    	z-index: 10;
+    	top: 0;
+    	left: 0;
+    	right: 0;
+    }
+    .hero-content-container {
+    	display: table;
+    	height:$hero-height-mobile;
+    	position: absolute;
+    	z-index: 20;
+    	top: 0;
+    	width: 100%;
+    	.hero-content {
+    		display: table-cell;
+    		text-align: center;
+    		vertical-align: middle;
+    		h1 {
+    			color: $white;
+    			.subheader {
+    				color: lighten($color-primary, 2%);
+    			}
+    		}
+    		p {
+    			color: $white;
+    			padding: 20px 10% 0;
+    		}
+    		.btn {
+    			margin-top: 40px;
+    		}
+    	}
+    }
+}
+
+@media (min-width: 992px) {
+	h1 {
+		font-size: 3.5rem;
+		.subheader {
+			margin-top: -8px;
+		}
+	}
+	header {
+		.logo {
+			img {
+				width: 350px
+			}
+		}
+		nav.main-nav {
+			display: block;
+		}
+	}
+	.hero {
+	    height: $hero-height;
+	    .hero-cover {
+	    	height: $hero-height;
+	    }
+	    .hero-content-container {
+	    	height: $hero-height;
+	    	.hero-content {
+	    		p {
+	    			padding: 25px 25% 0;
+	    		}
+	    	}
+	    }
+	}
 }

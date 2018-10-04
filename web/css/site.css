@@ -1,2 +1,118 @@
+body {
+  font-family: 'Roboto', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 300;
+  color: #111111; }
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0; }
+
+h1 {
+  font-weight: 500;
+  font-family: 'Ubuntu', sans-serif;
+  font-size: 3.5rem;
+  line-height: 3.5rem;
+  text-transform: capitalize; }
+  h1 .subheader {
+    font-size: 2.25rem;
+    display: block; }
+
+a {
+  color: #5a5f7f; }
+
+p {
+  margin: 0; }
+
+.btn {
+  background-color: #ee7243;
+  color: #FFFFFF;
+  padding: 10px 40px;
+  border-radius: 4px;
+  text-transform: uppercase; }
+  .btn:hover {
+    background-color: #eb5923;
+    color: #FFFFFF; }
+
 header {
-  display: none; }
+  padding: 20px 0; }
+  header .logo img {
+    width: 275px; }
+  header nav.main-nav {
+    display: none;
+    float: right;
+    margin: 1px 0 0 0; }
+    header nav.main-nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0; }
+      header nav.main-nav ul li {
+        display: inline-block;
+        vertical-align: middle; }
+        header nav.main-nav ul li a:not(.btn) {
+          padding: 0 5px 12px 5px;
+          margin: 0 0 0 10px;
+          text-decoration: none;
+          text-transform: uppercase;
+          font-family: 'Ubuntu', sans-serif;
+          font-size: 1rem;
+          color: #111111;
+          transition: border-width 0.15s linear; }
+          header nav.main-nav ul li a:not(.btn):hover {
+            border-bottom: solid 4px #ee7243; }
+        header nav.main-nav ul li .btn {
+          margin: 0 0 0 20px; }
+
+.hero {
+  background: url(../images/Backyard-Circled-in-prayer.jpg);
+  height: 600px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: relative; }
+  .hero .hero-cover {
+    background-color: #000;
+    opacity: 0.65;
+    height: 600px;
+    position: absolute;
+    z-index: 10;
+    top: 0;
+    left: 0;
+    right: 0; }
+  .hero .hero-content-container {
+    display: table;
+    height: 600px;
+    position: absolute;
+    z-index: 20;
+    top: 0;
+    width: 100%; }
+    .hero .hero-content-container .hero-content {
+      display: table-cell;
+      text-align: center;
+      vertical-align: middle; }
+      .hero .hero-content-container .hero-content h1 {
+        color: #FFFFFF; }
+        .hero .hero-content-container .hero-content h1 .subheader {
+          color: #ef794d; }
+      .hero .hero-content-container .hero-content p {
+        color: #FFFFFF;
+        padding: 20px 10% 0; }
+      .hero .hero-content-container .hero-content .btn {
+        margin-top: 40px; }
+
+@media (min-width: 992px) {
+  h1 {
+    font-size: 3.5rem; }
+    h1 .subheader {
+      margin-top: -8px; }
+  header .logo img {
+    width: 350px; }
+  header nav.main-nav {
+    display: block; }
+  .hero {
+    height: 800px; }
+    .hero .hero-cover {
+      height: 800px; }
+    .hero .hero-content-container {
+      height: 800px; }
+      .hero .hero-content-container .hero-content p {
+        padding: 25px 25% 0; } }
