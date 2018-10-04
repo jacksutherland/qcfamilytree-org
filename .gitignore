@@ -1,0 +1,12 @@
+.htaccess
+/web/.htaccess
+/.env
+/.idea
+.DS_Store
+/node_modules
+/web/uploads
+/web/cpresources
+/config/db.php
+/config/app.php
+/config/general.php
+/config/license.key
