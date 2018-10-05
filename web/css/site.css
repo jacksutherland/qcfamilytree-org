@@ -2,7 +2,8 @@ body {
   font-family: 'Roboto', sans-serif;
   font-size: 1.1rem;
   font-weight: 300;
-  color: #111111; }
+  color: #111111;
+  padding-bottom: 100px; }
 
 h1, h2, h3, h4, h5, h6 {
   margin: 0; }
@@ -16,6 +17,21 @@ h1 {
   h1 .subheader {
     font-size: 2.25rem;
     display: block; }
+
+h3 {
+  font-family: 'Ubuntu', sans-serif;
+  font-weight: 400;
+  font-size: 1.75rem;
+  line-height: 1.75rem; }
+
+h4 {
+  font-family: 'Ubuntu', sans-serif;
+  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1.5rem; }
+
+h5 {
+  font-weight: 300; }
 
 a {
   color: #5a5f7f; }
@@ -64,42 +80,148 @@ header {
 
 .hero {
   background: url(../images/Backyard-Circled-in-prayer.jpg);
-  height: 600px;
+  height: 700px;
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
-  position: relative; }
-  .hero .hero-cover {
-    background-color: #000;
-    opacity: 0.65;
-    height: 600px;
-    position: absolute;
-    z-index: 10;
-    top: 0;
-    left: 0;
-    right: 0; }
+  position: relative;
+  overflow: hidden; }
   .hero .hero-content-container {
     display: table;
-    height: 600px;
+    opacity: 1;
+    height: 700px;
     position: absolute;
-    z-index: 20;
+    z-index: 30;
     top: 0;
     width: 100%; }
     .hero .hero-content-container .hero-content {
       display: table-cell;
       text-align: center;
       vertical-align: middle; }
-      .hero .hero-content-container .hero-content h1 {
-        color: #FFFFFF; }
-        .hero .hero-content-container .hero-content h1 .subheader {
-          color: #ef794d; }
-      .hero .hero-content-container .hero-content p {
+      .hero .hero-content-container .hero-content .hero-text h1 {
         color: #FFFFFF;
-        padding: 20px 10% 0; }
-      .hero .hero-content-container .hero-content .btn {
-        margin-top: 40px; }
+        opacity: 1; }
+        .hero .hero-content-container .hero-content .hero-text h1 .subheader {
+          color: #ef794d; }
+      .hero .hero-content-container .hero-content .hero-text .hero-cta {
+        opacity: 1; }
+        .hero .hero-content-container .hero-content .hero-text .hero-cta p {
+          color: #FFFFFF;
+          padding: 20px 10% 0; }
+        .hero .hero-content-container .hero-content .hero-text .hero-cta .btn {
+          margin-top: 40px; }
+      .hero .hero-content-container .hero-content .hero-tree {
+        text-align: center;
+        opacity: 1;
+        height: 200px;
+        margin-bottom: -50px; }
+        .hero .hero-content-container .hero-content .hero-tree img {
+          height: 100%; }
+  .hero .hero-cover {
+    background-color: #000000;
+    opacity: 0.75;
+    height: 700px;
+    position: absolute;
+    z-index: 10;
+    top: 0;
+    left: 0;
+    right: 0; }
 
+.z-pattern {
+  margin: 70px 0; }
+  .z-pattern .image-block, .z-pattern .text-block {
+    height: 500px;
+    background-color: #F1F1F1; }
+  .z-pattern .image-block {
+    background-size: cover;
+    background-position: center; }
+  .z-pattern .text-block {
+    text-align: center;
+    display: table;
+    width: 100%; }
+    .z-pattern .text-block .text-block-content {
+      display: table-cell;
+      vertical-align: middle; }
+      .z-pattern .text-block .text-block-content i {
+        margin: 20px 0;
+        font-size: 3.65rem;
+        color: #8F94B0; }
+      .z-pattern .text-block .text-block-content h3 {
+        margin: 20px 0; }
+      .z-pattern .text-block .text-block-content h5 {
+        margin: 20px 20%; }
+        .z-pattern .text-block .text-block-content h5 strong {
+          font-weight: 500; }
+
+/*** PHONE ***/
+@media (min-width: 768px) {
+  .z-pattern .row .col-md-6:nth-child(odd) {
+    padding-right: 0; }
+  .z-pattern .row .col-md-6:nth-child(even) {
+    padding-left: 0; } }
+
+/*** TABLET ***/
 @media (min-width: 992px) {
+  @keyframes cover-animation {
+    from {
+      opacity: 0;
+      background-color: #FFFFFF; }
+    10% {
+      opacity: 0; }
+    35% {
+      opacity: 0.75;
+      background-color: #FFFFFF; }
+    42% {
+      opacity: 0.65;
+      background-color: #000000; }
+    45% { }
+    80% { }
+    to { } }
+  @keyframes tree-animation {
+    from {
+      opacity: 0;
+      height: 600px;
+      margin-top: 7%; }
+    10% {
+      opacity: 0; }
+    35% {
+      opacity: 1;
+      height: 600px;
+      margin-top: 7%;
+      margin-bottom: 0; }
+    42% {
+      height: 200px;
+      margin-top: 0;
+      margin-bottom: -50px; }
+    45% { }
+    80% { }
+    to { } }
+  @keyframes header-animation {
+    from {
+      opacity: 0;
+      margin-top: 0; }
+    10% { }
+    35% {
+      opacity: 0;
+      margin-top: 500px; }
+    42% {
+      opacity: 1;
+      margin-top: 0; }
+    45% { }
+    80% { }
+    to { } }
+  @keyframes cta-animation {
+    from {
+      opacity: 0; }
+    10% { }
+    35% { }
+    42% { }
+    45% {
+      opacity: 0; }
+    80% {
+      opacity: 1; }
+    to {
+      opacity: 1; } }
   h1 {
     font-size: 3.5rem; }
     h1 .subheader {
@@ -110,9 +232,26 @@ header {
     display: block; }
   .hero {
     height: 800px; }
-    .hero .hero-cover {
-      height: 800px; }
     .hero .hero-content-container {
       height: 800px; }
-      .hero .hero-content-container .hero-content p {
-        padding: 25px 25% 0; } }
+      .hero .hero-content-container .hero-content .hero-text h1 {
+        animation: header-animation 10s;
+        -webkit-animation: header-animation 10s;
+        animation-timing-function: ease-in;
+        -webkit-animation-timing-function: ease-in; }
+      .hero .hero-content-container .hero-content .hero-text .hero-cta {
+        animation: cta-animation 10s;
+        -webkit-animation: cta-animation 10s; }
+        .hero .hero-content-container .hero-content .hero-text .hero-cta p {
+          padding: 20px 25% 0; }
+      .hero .hero-content-container .hero-content .hero-tree {
+        animation: tree-animation 10s;
+        -webkit-animation: tree-animation 10s;
+        animation-timing-function: ease-in-out;
+        -webkit-animation-timing-function: ease-in-out; }
+    .hero .hero-cover {
+      animation: cover-animation 10s;
+      -webkit-animation: cover-animation 10s;
+      animation-timing-function: ease-in-out;
+      -webkit-animation-timing-function: ease-in-out;
+      height: 800px; } }
