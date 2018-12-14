@@ -43,6 +43,7 @@ h4 {
 	font-weight: 400;
 	font-size: 1.75rem;
 	line-height: 1.75rem;
+	//text-transform: capitalize;
 }
 
 h5 {
@@ -293,7 +294,7 @@ form {
 			vertical-align: middle;
 			i {
 				margin: 20px 0;
-				font-size: 3.65rem;
+				font-size: 4rem;
 				color: $color-secondary;
 			}
 			h4 {
