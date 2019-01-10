@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta name="robots" content="noindex, nofollow">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+
+        {# SEO and Social Meta Data #}
+
+       {#  {% set pageTitle = defaultSeo.seoTitle ~ ' ' ~ defaultSeo.seoTitleSuffix %}
+        {% set socialTitle = defaultSeo.seoTitle %}
+        {% set pageDescription = '' %}
+        {% set socialImage = '' %}
+        {% set canonicalUrl = '' %}
+
+        {% if entry %}
+            {% if entry.seoTitle and entry.seoTitle | length %}
+                {% set pageTitle = entry.seoTitle ~ ' ' ~ defaultSeo.seoTitleSuffix %}
+                {% set socialTitle = entry.seoTitle %}
+            {% else %}
+                {% set pageTitle = entry.title ~ ' ' ~ defaultSeo.seoTitleSuffix %}
+                {% set socialTitle = entry.title %}
+            {% endif %}
+            {% if entry.seoDescription and entry.seoDescription | length %}
+                {% set pageDescription = entry.seoDescription %}
+            {% endif %}
+            {% if entry.canonicalUrl and entry.canonicalUrl | length %}
+                {% set canonicalUrl = entry.canonicalUrl %}
+            {% endif %}
+            {% if entry.heroBackgroundImage and entry.heroBackgroundImage.count %}
+                {% set socialImage = entry.heroBackgroundImage.one().url %}
+            {% elseif entry.productImage and entry.productImage.count %}
+                {% set socialImage = entry.productImage.one().url %}
+            {% elseif entry.solutionImage and entry.solutionImage.count %}
+                {% set socialImage = entry.solutionImage.one().url %}
+            {% elseif entry.industryImage and entry.industryImage.count %}
+                {% set socialImage = entry.industryImage.one().url %}
+            {% endif %}
+        {% endif %}
+
+        <title>{{ pageTitle }}</title>
+        {% if pageDescription | length %}
+            <meta name="description" content="{{ pageDescription }}">
+        {% endif %}
+        {% if canonicalUrl | length %}
+            <link rel="canonical" href="{{ canonicalUrl }}" />
+        {% endif %}
+
+        <meta property="og:title" content="{{ socialTitle }}">
+        <meta property="og:description" content="{{ pageDescription }}">
+        <meta property="og:url" content="{% if canonicalUrl | length %}{{ canonicalUrl }}{% else %}{{ craft.request.url }}{% endif %}">
+        {% if socialImage | length %}
+            <meta property="og:image" content="{{ socialImage }}">
+        {% endif %}
+
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="{{ socialTitle }} ">
+        <meta name="twitter:description" content="{{ pageDescription }}">
+        {% if socialImage | length %}
+            <meta name="twitter:image" content="{{ socialImage }}">
+        {% endif %}
+
+        <!-- Google Tag Manager -->
+        <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+        })(window,document,'script','dataLayer','GTM-M6N6WCK');</script>
+        <!-- End Google Tag Manager --> #}
+
+        <link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,500,500i" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css?family=Ubuntu:400,500,700" rel="stylesheet">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
+        <link rel="stylesheet" href="css/site.css">
+
+        {% block head %}{% endblock %}
+
+    </head>
+
+    <body {% if entry is defined %}id="{{ entry.slug }}"{% endif %}>
+
+       {#  <!-- Google Tag Manager (noscript) -->
+        <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-M6N6WCK"
+        height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+        <!-- End Google Tag Manager (noscript) --> #}
+
+        {% include '_includes/header' %}
+
+        <div class="site-container">
+
+             {% include '_includes/hero' %}
+
+            {% block content %}
+                <p>If you see me, you haven’t set your <code>{% verbatim %}{% block content %}…{% endblock %}{% endverbatim %}</code> yet.</p>
+            {% endblock %}
+
+            {% include '_includes/footer' %}
+
+        </div>
+
+        <!--BEGIN JAVASCRIPT-->
+        <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+        <script src="js/site.js"></script>
+        {% block scripts %}{% endblock %}
+        <!--END JAVASCRIPT-->
+
+    </body>
+ </html>

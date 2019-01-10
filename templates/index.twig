@@ -1,0 +1,148 @@
+{% extends "_layout" %}
+
+{% block content %}
+
+    <div class="z-pattern">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6 order-1 order-md-1">
+                    <div class="image-block" style="background-image: url(/images/blm.jpg);"></div>
+                </div>
+                <div class="col-md-6 order-2 order-md-2">
+                    <div class="text-block">
+                        <div class="text-block-content">
+                            <i class="fas fa-user-tie"></i>
+                            <h4>Developing young leaders</h4>
+                            <h5>We help young people develop their gifts in order to lead their community.
+                                {# But there is <strong>hope</strong>, there is <strong>another way</strong>. #}
+                            </h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 order-2 order-md-1">
+                    <div class="text-block">
+                        <div class="text-block-content">
+                            <i class="fas fa-home"></i>
+                            <h4>Building a little village</h4>
+                            <h5>
+                                We are building an exciting, creative neighborhood, with an emphasis on affordable housing.
+                            </h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 order-1 order-md-2">
+                    <div class="image-block" style="background-image: url(/images/homeless.jpg);"></div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 order-2 order-md-1">
+                    <div class="image-block" style="background-image: url(/images/LAH_5982.jpg);"></div>
+                </div>
+                <div class="col-md-6 order-1 order-md-2">
+                    <div class="text-block">
+                        <div class="text-block-content">
+                            <i class="fas fa-hands-helping"></i>
+                            <h4>Where Abundance is coming to life</h4>
+                            <h5>
+                                We work with community organizations, religious groups, and businesses to develop a cultural narrative of Abundance.
+                            </h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 order-2 order-md-1">
+                    <div class="text-block">
+                        <div class="text-block-content">
+                            <i class="fas fa-hand-holding-heart"></i>
+                            <h4>Life together</h4>
+                            <h5>
+                                We share our lives together, in close proximity and in solidarity with the poor and oppressed.
+                            </h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 order-1 order-md-2">
+                    <div class="image-block" style="background-image: url(/images/playground.jpg);"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-banner">
+        <div class="container">
+            <div class="row">
+                <div class="col">
+                    <div>
+                        <img src="images/QCFT-Tree-Medium.png" alt="QC Family Tree">
+                    </div>
+                    <h3>We are the Family Tree</h3>
+                    <q>"We believe the people and places surrounding the Enderly Park neighborhood are the good soil in which we desire to be planted.  Because the soil where we are planted bears the wounds of racial oppression, we will always be working against the legacy of racism.  We look to our neighbors for wisdom, guidance, and mutual care."</q>
+                    <div class="mt-4">
+                        <a href="/" class="btn">Learn How You Can Help</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="image-banner" style="background-image: url(/images/Enderly-Park.jpg)"></div>
+
+    <div class="contact">
+        <div class="container">
+            <div class="row">
+                <div class="col-12">
+                    <h3>Take the next step</h3>
+                    <h5>Complete the form below and let's connect.</h5>
+                </div>
+            </div>
+            <form>
+                <div class="row justify-content-md-center"">
+                    <div class="col-md-6 col-lg-4">
+                        <div>
+                            <input type="text" name="first" placeholder="First Name *">
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div>
+                            <input type="text" name="last" placeholder="Last Name *">
+                        </div>
+                    </div>
+                </div>
+                <div class="row justify-content-md-center"">
+                    <div class="col-md-6 col-lg-4">
+                        <div>
+                            <input type="text" name="email" placeholder="Email *">
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div>
+                            <input type="text" name="phone" placeholder="Phone">
+                        </div>
+                    </div>
+                </div>
+                <div class="row justify-content-md-center"">
+                    <div class="col-md-12 col-lg-8">
+                        <div>
+                            <textarea name="comments" placeholder="Message"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="row justify-content-md-center"">
+                    <div class="col-md-12 col-lg-8">
+                        <div>
+                            <button class="btn">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="map">
+        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3258.5532326854427!2d-80.87968724845699!3d35.242490061417726!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8856a1eaba17e7c3%3A0x798145751b05c264!2s2910+Parkway+Ave%2C+Charlotte%2C+NC+28208!5e0!3m2!1sen!2sus!4v1539012587668" width="100%" height="300" frameborder="0" style="border:0" allowfullscreen></iframe>
+    </div>
+
+{% endblock %}

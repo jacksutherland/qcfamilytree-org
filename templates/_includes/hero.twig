@@ -1,0 +1,33 @@
+<div class="hero"{% if entry.heroImage.count %} style="background-image: url({{ entry.heroImage.first().url }});"{% endif %}>
+    <div class="hero-content-container">
+        <div class="hero-content">
+            {% if entry.slug == 'homepage' %}
+                <div class="hero-tree">
+                    <img alt="Family Tree" src="images/QCFT-Tree-Medium.png">
+                </div>
+            {% endif %}
+            <div class="hero-text">
+                <h1>
+                    {% if entry.heroHeader | length %}
+                        {{ entry.heroHeader }}
+                    {% else %}
+                        {{ entry.title }}
+                    {% endif %}
+                    {% if entry.heroSubtitle | length %}
+                        <span class="subheader">{{ entry.heroSubtitle }}</span>
+                    {% endif %}
+                    {# Cultivating community 
+                    <span class="subheader">for the common good</span> #}
+                </h1>
+                {% if entry.heroButtonText | length and entry.heroButtonEntry.count %}
+                    <div class="hero-cta">
+                        <div>
+                            <a href="{{ entry.heroButtonEntry.first().url }}" class="btn">{{ entry.heroButtonText }}</a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="hero-cover"></div>
+</div>

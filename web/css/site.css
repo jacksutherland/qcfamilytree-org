@@ -51,8 +51,19 @@ q {
     background-color: #eb5923;
     color: #FFFFFF; }
 
+.site-container {
+  width: 100%;
+  margin: 90px 0 0 0; }
+
 header {
-  padding: 20px 0; }
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 20px 0;
+  background-color: #FFFFFF;
+  border: 1px solid #DDDDDD; }
   header .logo img {
     width: 275px; }
   header nav.main-nav {
@@ -86,6 +97,22 @@ header {
             color: #71779b; }
         header nav.main-nav ul li .btn {
           margin: 0 0 0 20px; }
+  header .drop-down-nav {
+    position: fixed;
+    z-index: 110;
+    top: 91px;
+    max-width: 1110px;
+    width: 100%;
+    height: 300px;
+    background-color: #000000;
+    color: #FFFFFF;
+    padding: 35px 50px 0 50px;
+    display: none; }
+    header .drop-down-nav h4 {
+      padding-bottom: 20px;
+      border-bottom: solid 1px #FFFFFF; }
+    header .drop-down-nav.open {
+      display: block; }
 
 footer {
   padding: 70px 0 0 0;
