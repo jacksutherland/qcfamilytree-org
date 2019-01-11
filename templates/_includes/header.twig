@@ -1,36 +1,69 @@
  <header>
   <div class="container">
     <a class="logo" href="/">
-      <img src="images/qcminilogo.jpg" alt="QC Family Tree">
+      <img src="/images/qcminilogo.jpg" alt="QC Family Tree">
     </a>
+    <a id="hamburger" href="/">
+        <i class="fas fa-bars"></i>
+    </li>
     <nav class="main-nav">
-        <ul>
+        <ul itemscope itemtype="http://schema.org/SiteNavigationElement">
+            {% for menu in craft.entries.section('pages').level(1) %}
+                {% if menu.showInMenu %}
+                    <li{% if menu.children.count %} data-submenu="#submenu-{{ menu.slug }}"{% endif %}>
+                        <a itemprop="url" href="{{ menu.url }}"><span itemprop="name">{{ menu.title }}</span></a>
+                        {% if menu.children.count %}
+                            <div id="submenu-{{ menu.slug }}" class="drop-down-nav">
+                                <div class="drop-down-container">
+                                    <h4><a href="{{ menu.url }}">{{ menu.title }} <i class="far fa-arrow-alt-circle-right"></i></a></h4>
+                                    {% for child in menu.children %}
+                                        {% if child.showInMenu %}
+                                            <div class="child-nav">
+                                                <a itemprop="url" href="{{ child.url }}"><span itemprop="name">{{ child.title }}</span></a>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    </li>
+                {% endif %}
+            {% endfor %}
             <li>
-                <a href="/">About</a>
-            </li>
-            <li>
-                <a href="/">Podcast</a>
-            </li>
-            <li>
-                <a href="/">Get Involved</a>
-            </li>
-            <li>
-                <a href="/" class="btn">Donate</a>
+                <a href="{{ craft.entries.slug('contribute').one().url }}" class="btn">Donate</a>
             </li>
             <li class="social">
-                <a href="http://facebook.com/qcfamilytree">
+                <a href="{{ socialMedia.facebookUrl }}" target="_blank">
                     <i class="fab fa-facebook-square"></i>
                 </a>
             </li>
             <li class="social">
-                <a href="http://twitter.com/qcfamilytree">
+                <a href="{{ socialMedia.twitterUrl }}" target="_blank">
                     <i class="fab fa-twitter"></i>
                 </a>
             </li>
+            
         </ul>
     </nav>
-    <div class="drop-down-nav">
-        <h4>Sub Menu Title</h4>
-    </div>
+    <nav class="mobile-menu">
+        {% for menu in craft.entries.section('pages').level(1) %}
+            {% if menu.showInMenu %}
+                <div>
+                    <a itemprop="url" href="{{ menu.url }}"><span itemprop="name">{{ menu.title }}</span></a>
+                    {% if menu.children.count %}
+                        <div class="mobile-submenu">
+                            {% for child in menu.children %}
+                                {% if child.showInMenu %}
+                                    <div>
+                                        <a itemprop="url" href="{{ child.url }}"><span itemprop="name">{{ child.title }}</span></a>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endfor %}
+    </nav>
   </div>
 </header>

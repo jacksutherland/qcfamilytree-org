@@ -1,4 +1,4 @@
-<div class="hero"{% if entry.heroImage.count %} style="background-image: url({{ entry.heroImage.first().url }});"{% endif %}>
+<div class="hero{% if entry.slug == 'homepage' %} large-hero{% elseif entry.heroImage.count == 0 %} small-hero{% endif %}"{% if entry.heroImage.count %} style="background-image: url({{ entry.heroImage.first().url }});"{% endif %}>
     <div class="hero-content-container">
         <div class="hero-content">
             {% if entry.slug == 'homepage' %}

@@ -1,10 +1,15 @@
 $(function()
 {
-	$(".main-nav a").hover(function()
+	$(".main-nav li[data-submenu]").hover(function()
 	{
-		$(".drop-down-nav").addClass("open");
+		$($(this).data("submenu")).addClass("open");
 	}, function()
 	{
 		$(".drop-down-nav").removeClass("open");
+	});
+	$("#hamburger").click(function(e)
+	{
+		e.preventDefault();
+		$(".mobile-menu").toggle();
 	});
 });

@@ -1,5 +1,8 @@
-$hero-height: 800px;
-$hero-height-mobile: 700px;
+$hero-height: 500px;
+$hero-height-mobile: 350px;
+$large-hero-height: 800px;
+$large-hero-height-mobile: 700px;
+$small-hero-height: 200px;
 $white: #FFFFFF;
 $black: #000000;
 $border-color: #DDDDDD;
@@ -65,7 +68,7 @@ q {
 .btn {
 	background-color: $color-primary;
 	color: $white;
-	padding: 10px 40px;
+	padding: 10px 30px;
 	border-radius: 4px;
 	text-transform: uppercase;
 	&:hover {
@@ -85,6 +88,7 @@ header {
 	top: 0;
 	left: 0;
 	right: 0;
+	height: 92px;
 	padding: 20px 0;
 	background-color: $white;
 	border: 1px solid $border-color;
@@ -92,6 +96,40 @@ header {
 	.logo {
 		img {
 			width: 275px
+		}
+	}
+	#hamburger {
+		float: right;
+		color: #000;
+	    font-size: 40px;
+	    line-height: 40px;
+	}
+	nav.mobile-menu {
+		display: none;
+		background-color: $black;
+		position: fixed;
+		top: 92px;
+		left: 0;
+		right: 0;
+		padding: 40px 50px 50px 50px;
+		a {
+			color: $white;
+			font-size: 20px;
+			font-weight: bold;
+			//border-bottom: solid $white 2px;
+			display: inline-block;
+			padding: 10px 0 0 0;
+			&:hover {
+				text-decoration: none;
+			}
+		}
+		.mobile-submenu {
+			margin-bottom: 10px;
+			a {
+				font-size: 16px;
+				font-weight: normal;
+				//border-bottom: none;
+			}
 		}
 	}
 	nav.main-nav {
@@ -107,7 +145,7 @@ header {
 				vertical-align: middle;
 				a:not(.btn) {
 					padding: 0 5px 12px 5px;
-					margin: 0 0 0 10px;
+					margin: 0 0 0 5px;
 					text-decoration: none;
 					text-transform: uppercase;
 					font-family: 'Ubuntu', sans-serif;
@@ -126,6 +164,7 @@ header {
 							color: $color-secondary;
 						}
 						&:hover {
+							//border-bottom: none;
 							i {
 								color: darken($color-secondary, 12%);
 							}
@@ -133,32 +172,57 @@ header {
 					}
 				}
 				.btn {
-					margin: 0 0 0 20px;
+					margin: 0 0 0 10px;
 				}
-
+				.drop-down-nav {
+					position: fixed;
+					z-index: 110;
+					//top: 91px;
+					left: 45%;
+					right: 5%;
+					max-width: 1110px;
+					width: 100%;
+					display: none;
+					&.open {
+						display: block;
+					}
+					.drop-down-container {
+						background-color: $black;
+						color: $white;
+						padding: 40px 50px 35px 50px;
+						margin-top: 34px;
+						h4 {
+							padding-bottom: 20px;
+							border-bottom: solid 1px $white;
+							a {
+								color: $white;
+								font-family: 'Ubuntu', sans-serif;
+							    font-weight: 400;
+							    font-size: 1.75rem;
+							    line-height: 1.75rem;
+							    i {
+							    	transition: color 0.15s linear;
+							    	margin-left: 10px;
+							    }
+								&:hover {
+									//color: $color-primary;
+									border-bottom: none;
+									i {
+										color: $color-primary;
+									}
+								}
+							}
+						}
+						.child-nav {
+							margin: 20px 0;
+							a {
+								color: $white;
+								padding-bottom: 8px;
+							}
+						}
+					}
+				}
 			}
-		}
-	}
-	.drop-down-nav {
-		position: fixed;
-		z-index: 110;
-		top: 91px;
-		max-width: 1110px;
-		width: 100%;
-		height: 300px;
-		background-color: $black;
-		color: $white;
-		padding: 35px 50px 0 50px;
-		display: none;
-		//opacity: 0;
-		//transition: opacity 0.25s;
-		h4 {
-			padding-bottom: 20px;
-			border-bottom: solid 1px $white;
-		}
-		&.open {
-			display: block;
-			//opacity: 1;
 		}
 	}
 }
@@ -240,17 +304,36 @@ form {
 }
 
 .hero {
-	background: url(../images/Backyard-Circled-in-prayer.jpg);
+	//background: url(../images/Backyard-Circled-in-prayer.jpg);
 	height: $hero-height-mobile;
 	background-position: center;
     background-repeat: no-repeat;
     background-size: cover;
     position: relative;
     overflow: hidden;
+    &.small-hero {
+    	height: $small-hero-height !important;
+    	.hero-content-container {
+    		height: $small-hero-height !important;
+    	}
+    	.hero-cover {
+    		height: $small-hero-height !important;
+	    }
+    }
+    &.large-hero {
+    	height: $large-hero-height-mobile;
+    	.hero-content-container {
+    		height: $large-hero-height-mobile;
+    	}
+    	.hero-cover {
+	    	height: $large-hero-height-mobile;
+	    	opacity: 0.75;
+	    }
+    }
     .hero-content-container {
     	display: table;
     	opacity: 1;
-    	height:$hero-height-mobile;
+    	height: $hero-height-mobile;
     	position: absolute;
     	z-index: 30;
     	top: 0;
@@ -291,7 +374,7 @@ form {
     }
     .hero-cover {
     	background-color: $black;
-    	opacity: 0.75;
+    	opacity: 0.35;
     	height: $hero-height-mobile;
     	position: absolute;
     	z-index: 10;
@@ -461,46 +544,70 @@ form {
 				width: 350px
 			}
 		}
+		#hamburger {
+			display: none;
+		}
+		nav.mobile-menu {
+			display: none !important
+		}
 		nav.main-nav {
 			display: block;
 		}
 	}
 	.hero {
 		height: $hero-height;
-	    .hero-content-container {
-	    	height:$hero-height;
+		&.large-hero {
+			height: $large-hero-height;
+			.hero-content-container {
+	    		height: $large-hero-height;
+	    	}
+	    	.hero-cover {
+	    		height: $large-hero-height;
+	    	}
+	    	.hero-content-container {
+		    	.hero-content {
+		    		.hero-text {
+			    		h1 {
+							animation: header-animation $hero-transition-duration;
+							-webkit-animation: header-animation $hero-transition-duration;
+							animation-timing-function: ease-in;
+							-webkit-animation-timing-function: ease-in;
+			    		}
+			    		.hero-cta {
+							animation: cta-animation $hero-transition-duration;
+							-webkit-animation: cta-animation $hero-transition-duration;
+				    	}
+			    	}
+		    		.hero-tree {
+						animation: tree-animation $hero-transition-duration;
+						-webkit-animation: tree-animation $hero-transition-duration;
+						animation-timing-function: ease-in-out;
+						-webkit-animation-timing-function: ease-in-out;
+				    }
+		    	}
+		    }
+		    .hero-cover {
+		    	animation: cover-animation $hero-transition-duration;
+				-webkit-animation: cover-animation $hero-transition-duration;
+				animation-timing-function: ease-in-out;
+				-webkit-animation-timing-function: ease-in-out;
+		    }
+		}
+		.hero-content-container {
+	    	height: $hero-height;
 	    	.hero-content {
 	    		.hero-text {
-		    		h1 {
-						animation: header-animation $hero-transition-duration;
-						-webkit-animation: header-animation $hero-transition-duration;
-						animation-timing-function: ease-in;
-						-webkit-animation-timing-function: ease-in;
-		    		}
 		    		.hero-cta {
-						animation: cta-animation $hero-transition-duration;
-						-webkit-animation: cta-animation $hero-transition-duration;
 						p {
 			    			padding: 20px 25% 0;
 			    		}
 			    	}
 		    	}
-	    		.hero-tree {
-					animation: tree-animation $hero-transition-duration;
-					-webkit-animation: tree-animation $hero-transition-duration;
-					animation-timing-function: ease-in-out;
-					-webkit-animation-timing-function: ease-in-out;
-			    }
 	    	}
 	    }
 	    .hero-cover {
-	    	animation: cover-animation $hero-transition-duration;
-			-webkit-animation: cover-animation $hero-transition-duration;
-			animation-timing-function: ease-in-out;
-			-webkit-animation-timing-function: ease-in-out;
 	    	height: $hero-height;
 	    }
-	    
 	}
 	.text-banner {
 		q {

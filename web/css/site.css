@@ -44,7 +44,7 @@ q {
 .btn {
   background-color: #ee7243;
   color: #FFFFFF;
-  padding: 10px 40px;
+  padding: 10px 30px;
   border-radius: 4px;
   text-transform: uppercase; }
   .btn:hover {
@@ -61,11 +61,38 @@ header {
   top: 0;
   left: 0;
   right: 0;
+  height: 92px;
   padding: 20px 0;
   background-color: #FFFFFF;
   border: 1px solid #DDDDDD; }
   header .logo img {
     width: 275px; }
+  header #hamburger {
+    float: right;
+    color: #000;
+    font-size: 40px;
+    line-height: 40px; }
+  header nav.mobile-menu {
+    display: none;
+    background-color: #000000;
+    position: fixed;
+    top: 92px;
+    left: 0;
+    right: 0;
+    padding: 40px 50px 50px 50px; }
+    header nav.mobile-menu a {
+      color: #FFFFFF;
+      font-size: 20px;
+      font-weight: bold;
+      display: inline-block;
+      padding: 10px 0 0 0; }
+      header nav.mobile-menu a:hover {
+        text-decoration: none; }
+    header nav.mobile-menu .mobile-submenu {
+      margin-bottom: 10px; }
+      header nav.mobile-menu .mobile-submenu a {
+        font-size: 16px;
+        font-weight: normal; }
   header nav.main-nav {
     display: none;
     float: right;
@@ -79,7 +106,7 @@ header {
         vertical-align: middle; }
         header nav.main-nav ul li a:not(.btn) {
           padding: 0 5px 12px 5px;
-          margin: 0 0 0 10px;
+          margin: 0 0 0 5px;
           text-decoration: none;
           text-transform: uppercase;
           font-family: 'Ubuntu', sans-serif;
@@ -96,23 +123,43 @@ header {
           header nav.main-nav ul li.social a:hover i {
             color: #71779b; }
         header nav.main-nav ul li .btn {
-          margin: 0 0 0 20px; }
-  header .drop-down-nav {
-    position: fixed;
-    z-index: 110;
-    top: 91px;
-    max-width: 1110px;
-    width: 100%;
-    height: 300px;
-    background-color: #000000;
-    color: #FFFFFF;
-    padding: 35px 50px 0 50px;
-    display: none; }
-    header .drop-down-nav h4 {
-      padding-bottom: 20px;
-      border-bottom: solid 1px #FFFFFF; }
-    header .drop-down-nav.open {
-      display: block; }
+          margin: 0 0 0 10px; }
+        header nav.main-nav ul li .drop-down-nav {
+          position: fixed;
+          z-index: 110;
+          left: 45%;
+          right: 5%;
+          max-width: 1110px;
+          width: 100%;
+          display: none; }
+          header nav.main-nav ul li .drop-down-nav.open {
+            display: block; }
+          header nav.main-nav ul li .drop-down-nav .drop-down-container {
+            background-color: #000000;
+            color: #FFFFFF;
+            padding: 40px 50px 35px 50px;
+            margin-top: 34px; }
+            header nav.main-nav ul li .drop-down-nav .drop-down-container h4 {
+              padding-bottom: 20px;
+              border-bottom: solid 1px #FFFFFF; }
+              header nav.main-nav ul li .drop-down-nav .drop-down-container h4 a {
+                color: #FFFFFF;
+                font-family: 'Ubuntu', sans-serif;
+                font-weight: 400;
+                font-size: 1.75rem;
+                line-height: 1.75rem; }
+                header nav.main-nav ul li .drop-down-nav .drop-down-container h4 a i {
+                  transition: color 0.15s linear;
+                  margin-left: 10px; }
+                header nav.main-nav ul li .drop-down-nav .drop-down-container h4 a:hover {
+                  border-bottom: none; }
+                  header nav.main-nav ul li .drop-down-nav .drop-down-container h4 a:hover i {
+                    color: #ee7243; }
+            header nav.main-nav ul li .drop-down-nav .drop-down-container .child-nav {
+              margin: 20px 0; }
+              header nav.main-nav ul li .drop-down-nav .drop-down-container .child-nav a {
+                color: #FFFFFF;
+                padding-bottom: 8px; }
 
 footer {
   padding: 70px 0 0 0;
@@ -164,17 +211,29 @@ form input[type=text], form textarea {
   margin: 20px 0; }
 
 .hero {
-  background: url(../images/Backyard-Circled-in-prayer.jpg);
-  height: 700px;
+  height: 350px;
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
   position: relative;
   overflow: hidden; }
+  .hero.small-hero {
+    height: 200px !important; }
+    .hero.small-hero .hero-content-container {
+      height: 200px !important; }
+    .hero.small-hero .hero-cover {
+      height: 200px !important; }
+  .hero.large-hero {
+    height: 700px; }
+    .hero.large-hero .hero-content-container {
+      height: 700px; }
+    .hero.large-hero .hero-cover {
+      height: 700px;
+      opacity: 0.75; }
   .hero .hero-content-container {
     display: table;
     opacity: 1;
-    height: 700px;
+    height: 350px;
     position: absolute;
     z-index: 30;
     top: 0;
@@ -204,8 +263,8 @@ form input[type=text], form textarea {
           height: 100%; }
   .hero .hero-cover {
     background-color: #000000;
-    opacity: 0.75;
-    height: 700px;
+    opacity: 0.35;
+    height: 350px;
     position: absolute;
     z-index: 10;
     top: 0;
@@ -346,33 +405,44 @@ form input[type=text], form textarea {
       margin-top: -8px; }
   header .logo img {
     width: 350px; }
+  header #hamburger {
+    display: none; }
+  header nav.mobile-menu {
+    display: none !important; }
   header nav.main-nav {
     display: block; }
   .hero {
-    height: 800px; }
-    .hero .hero-content-container {
+    height: 500px; }
+    .hero.large-hero {
       height: 800px; }
-      .hero .hero-content-container .hero-content .hero-text h1 {
+      .hero.large-hero .hero-content-container {
+        height: 800px; }
+      .hero.large-hero .hero-cover {
+        height: 800px; }
+      .hero.large-hero .hero-content-container .hero-content .hero-text h1 {
         animation: header-animation 10s;
         -webkit-animation: header-animation 10s;
         animation-timing-function: ease-in;
         -webkit-animation-timing-function: ease-in; }
-      .hero .hero-content-container .hero-content .hero-text .hero-cta {
+      .hero.large-hero .hero-content-container .hero-content .hero-text .hero-cta {
         animation: cta-animation 10s;
         -webkit-animation: cta-animation 10s; }
-        .hero .hero-content-container .hero-content .hero-text .hero-cta p {
-          padding: 20px 25% 0; }
-      .hero .hero-content-container .hero-content .hero-tree {
+      .hero.large-hero .hero-content-container .hero-content .hero-tree {
         animation: tree-animation 10s;
         -webkit-animation: tree-animation 10s;
         animation-timing-function: ease-in-out;
         -webkit-animation-timing-function: ease-in-out; }
+      .hero.large-hero .hero-cover {
+        animation: cover-animation 10s;
+        -webkit-animation: cover-animation 10s;
+        animation-timing-function: ease-in-out;
+        -webkit-animation-timing-function: ease-in-out; }
+    .hero .hero-content-container {
+      height: 500px; }
+      .hero .hero-content-container .hero-content .hero-text .hero-cta p {
+        padding: 20px 25% 0; }
     .hero .hero-cover {
-      animation: cover-animation 10s;
-      -webkit-animation: cover-animation 10s;
-      animation-timing-function: ease-in-out;
-      -webkit-animation-timing-function: ease-in-out;
-      height: 800px; }
+      height: 500px; }
   .text-banner q {
     margin: 0 10%; }
   .image-banner {
