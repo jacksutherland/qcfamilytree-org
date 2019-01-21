@@ -374,6 +374,7 @@ form {
     }
     .hero-cover {
     	background-color: $black;
+    	//background-color: linear-gradient(to right, $black, #444444); //, #444444);
     	opacity: 0.35;
     	height: $hero-height-mobile;
     	position: absolute;
@@ -385,8 +386,18 @@ form {
     
 }
 
-.z-pattern {
+.rich-text {
 	margin: 70px 0;
+	h2, h3, h4, h5, p {
+		margin: 20px 0;
+	}
+}
+
+.z-pattern {
+	margin: 70px 0 70px 0;
+	&+.z-pattern {
+		margin: -70px 0 70px 0;
+	}
 	.row {
 		.col-md-6 {
 			&:nth-child(odd) {
@@ -442,6 +453,14 @@ form {
 	q {
 		margin: 0 10px;
 		display: block;
+	}
+}
+
+.video {
+	margin: 70px 0;
+	iframe {
+		width: 100%;
+    	height: 450px;
 	}
 }
 

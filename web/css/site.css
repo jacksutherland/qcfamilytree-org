@@ -271,8 +271,15 @@ form input[type=text], form textarea {
     left: 0;
     right: 0; }
 
-.z-pattern {
+.rich-text {
   margin: 70px 0; }
+  .rich-text h2, .rich-text h3, .rich-text h4, .rich-text h5, .rich-text p {
+    margin: 20px 0; }
+
+.z-pattern {
+  margin: 70px 0 70px 0; }
+  .z-pattern + .z-pattern {
+    margin: -70px 0 70px 0; }
   .z-pattern .image-block, .z-pattern .text-block {
     height: 500px;
     background-color: #F1F1F1; }
@@ -309,6 +316,12 @@ form input[type=text], form textarea {
   .text-banner q {
     margin: 0 10px;
     display: block; }
+
+.video {
+  margin: 70px 0; }
+  .video iframe {
+    width: 100%;
+    height: 450px; }
 
 .image-banner {
   height: 300px;

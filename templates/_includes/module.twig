@@ -1,0 +1,159 @@
+{% for module in modules %}
+	{% switch module.type %}
+
+		{% case "zPattern" %}
+			<div class="z-pattern{% if loop.index == 1 %} first-z-pattern{% endif %}">
+		        <div class="container">
+		            <div class="row">
+		            	{% if module.imageAlignment == 'left' %}
+			                <div class="col-md-6 order-1 order-md-1">
+			                    <div class="image-block" style="background-image: url({{ module.image.one().url('zPattern') }});" title="{{ module.header }}"></div>
+			                </div>
+		                {% endif %}
+		                <div class="col-md-6 order-2 {% if module.imageAlignment == 'left' %}order-md-2{% else %}order-md-1{% endif %}">
+		                    <div class="text-block">
+		                        <div class="text-block-content">
+		                        	{{ module.icon | raw }}
+		                        	{% if module.header | length %}
+		                        		<h4>{{ module.header }}</h4>
+		                        	{% endif %}
+		                        	{% if module.text | length %}
+		                        		<h5>{{ module.text }}</h5>
+		                        	{% endif %}
+		                            {% if module.buttonText | length and module.buttonEntry.count %}
+		                        		<div>
+		                        			<a class="btn" href="{{ module.buttonEntry.one().url }}">{{ module.buttonText }}</a>
+		                        		</div>
+		                        	{% endif %}
+		                        </div>
+		                    </div>
+		                </div>
+		                {% if module.imageAlignment == 'right' %}
+			                <div class="col-md-6 order-1 order-md-2">
+			                    <div class="image-block" style="background-image: url({{ module.image.one().url('zPattern') }});" title="{{ module.header }}"></div>
+			                </div>
+		                {% endif %}
+		            </div>
+		        </div>
+		    </div>
+
+		    {% case "callout" %}
+		    	<div class="text-banner">
+			        <div class="container">
+			            <div class="row">
+			                <div class="col">
+			                	{% if module.showTree %}
+				                    <div>
+				                        <img src="images/QCFT-Tree-Medium.png" alt="QC Family Tree">
+				                    </div>
+			                    {% endif %}
+			                    {% if module.header | length %}
+	                        		<h3>{{ module.header }}</h3>
+	                        	{% endif %}
+	                        	{% if module.text | length %}
+	                        		<p>{{ module.text }}</p>
+	                        	{% endif %}
+			                     {% if module.buttonText | length and module.buttonEntry.count %}
+	                        		<div class="mt-4">
+	                        			<a class="btn" href="{{ module.buttonEntry.one().url }}">{{ module.buttonText }}</a>
+	                        		</div>
+	                        	{% elseif module.buttonText | length and module.buttonUrl | length %}
+	                        		<div class="mt-4">
+	                        			<a class="btn" href="{{ module.buttonUrl}}" target="_blank">{{ module.buttonText }}</a>
+	                        		</div>
+	                        	{% endif %}
+			                </div>
+			            </div>
+			        </div>
+			    </div>
+
+			{% case "bannerImage" %}
+				<div class="image-banner" style="background-image: url({{ module.image.one().url('hero') }})"></div>
+
+		    {% case "contactForm" %}
+		    	<div class="contact">
+			        <div class="container">
+			            <div class="row">
+			                <div class="col-12">
+			                    {% if module.header | length %}
+	                        		<h3>{{ module.header }}</h3>
+	                        	{% endif %}
+	                        	{% if module.subtitle | length %}
+	                        		<h5>{{ module.subtitle }}</h5>
+	                        	{% endif %}
+			                </div>
+			            </div>
+			            <form>
+			                <div class="row justify-content-md-center"">
+			                    <div class="col-md-6 col-lg-4">
+			                        <div>
+			                            <input type="text" name="first" placeholder="First Name *">
+			                        </div>
+			                    </div>
+			                    <div class="col-md-6 col-lg-4">
+			                        <div>
+			                            <input type="text" name="last" placeholder="Last Name *">
+			                        </div>
+			                    </div>
+			                </div>
+			                <div class="row justify-content-md-center"">
+			                    <div class="col-md-6 col-lg-4">
+			                        <div>
+			                            <input type="text" name="email" placeholder="Email *">
+			                        </div>
+			                    </div>
+			                    <div class="col-md-6 col-lg-4">
+			                        <div>
+			                            <input type="text" name="phone" placeholder="Phone">
+			                        </div>
+			                    </div>
+			                </div>
+			                <div class="row justify-content-md-center"">
+			                    <div class="col-md-12 col-lg-8">
+			                        <div>
+			                            <textarea name="comments" placeholder="Message"></textarea>
+			                        </div>
+			                    </div>
+			                </div>
+			                <div class="row justify-content-md-center"">
+			                    <div class="col-md-12 col-lg-8">
+			                        <div>
+			                            <button class="btn">Send</button>
+			                        </div>
+			                    </div>
+			                </div>
+			            </form>
+			        </div>
+			    </div>
+
+			{% case "googleMap" %}
+			    <div class="map">
+			    	{{ socialMedia.mapEmbedCode | raw }}
+			    </div>
+
+			{% case "richText" %}
+				{% if module.richText | length %}
+				    <div class="rich-text">
+				    	<div class="container">
+				            <div class="row">
+				                <div class="col-12 col-lg-10 col-xl-9 m-auto">
+	                        		{{ module.richText | raw }}
+				                </div>
+				            </div>
+				        </div>
+				    </div>
+			    {% endif %}
+
+			{% case "video" %}
+			    <div class="video">
+			    	<div class="container">
+				            <div class="row">
+				                <div class="col-12 col-lg-10 col-xl-9 m-auto">
+	                        		{{ module.embedCode | raw }}
+				                </div>
+				            </div>
+				        </div>
+			    </div>
+
+	{% endswitch %}	
+{% endfor %}

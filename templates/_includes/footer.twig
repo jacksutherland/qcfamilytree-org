@@ -23,7 +23,29 @@
             <div class="col-md-7">
                 <nav>
                     <div class="row">
-                        <div class="col-md-4">
+                        {% for menu in craft.entries.section('pages').level(1).limit(3) %}
+                            {% if menu.showInMenu %}
+                                <div class="col-md-4">
+                                    <ul>
+                                        <li>
+                                            <a itemprop="url" href="{{ menu.url }}"><span itemprop="name">{{ menu.title }}</span></a>
+                                            {% if menu.children.count %}
+                                                <ul>
+                                                    {% for child in menu.children %}
+                                                        {% if child.showInMenu %}
+                                                            <li>
+                                                                <a itemprop="url" href="{{ child.url }}"><span itemprop="name">{{ child.title }}</span></a>
+                                                            </li>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </ul>
+                                            {% endif %}
+                                        </li>
+                                    </ul>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                        {# <div class="col-md-4">
                             <ul>
                                 <li>
                                     <a href="/">About</a>
@@ -76,7 +98,7 @@
                                     </ul>
                                 </li>
                             </ul>
-                        </div>
+                        </div> #}
                     </div>
                 </nav>
             </div>
