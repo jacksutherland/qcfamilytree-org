@@ -313,11 +313,13 @@ form {
     overflow: hidden;
     &.small-hero {
     	height: $small-hero-height !important;
+    	background-image: url(/images/Pretty-Garden-1.jpg);
     	.hero-content-container {
     		height: $small-hero-height !important;
     	}
     	.hero-cover {
     		height: $small-hero-height !important;
+    		opacity: 0.7;
 	    }
     }
     &.large-hero {
@@ -459,8 +461,16 @@ form {
 .video {
 	margin: 70px 0;
 	iframe {
+		max-width: 100%;
+    	max-height: 450px;
+	}
+}
+
+.calendar {
+	margin: 70px 0;
+	iframe {
 		width: 100%;
-    	height: 450px;
+    	height: 800px;
 	}
 }
 

@@ -218,11 +218,13 @@ form input[type=text], form textarea {
   position: relative;
   overflow: hidden; }
   .hero.small-hero {
-    height: 200px !important; }
+    height: 200px !important;
+    background-image: url(/images/Pretty-Garden-1.jpg); }
     .hero.small-hero .hero-content-container {
       height: 200px !important; }
     .hero.small-hero .hero-cover {
-      height: 200px !important; }
+      height: 200px !important;
+      opacity: 0.7; }
   .hero.large-hero {
     height: 700px; }
     .hero.large-hero .hero-content-container {
@@ -320,8 +322,14 @@ form input[type=text], form textarea {
 .video {
   margin: 70px 0; }
   .video iframe {
+    max-width: 100%;
+    max-height: 450px; }
+
+.calendar {
+  margin: 70px 0; }
+  .calendar iframe {
     width: 100%;
-    height: 450px; }
+    height: 800px; }
 
 .image-banner {
   height: 300px;

@@ -20,10 +20,24 @@
 		                        	{% if module.text | length %}
 		                        		<h5>{{ module.text }}</h5>
 		                        	{% endif %}
-		                            {% if module.buttonText | length and module.buttonEntry.count %}
-		                        		<div>
-		                        			<a class="btn" href="{{ module.buttonEntry.one().url }}">{{ module.buttonText }}</a>
-		                        		</div>
+		                        	{% if module.buttonText == "[DONATE]" %}
+										<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+											<input type="hidden" name="cmd" value="_s-xclick">
+											<input type="hidden" name="hosted_button_id" value="WZKDS4V4U6K2E">
+											{# <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!"> #}
+											<button type="submit" class="btn" alt="PayPal - The safer, easier way to pay online!">Donate Now!</button>
+											<img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+										</form>
+		                            {% elseif module.buttonText | length %}
+		                            	{% if module.buttonEntry.count %}
+			                        		<div>
+			                        			<a class="btn" href="{{ module.buttonEntry.one().url }}">{{ module.buttonText }}</a>
+			                        		</div>
+			                        	{% elseif module.buttonExternalUrl | length %}
+			                        		<div>
+			                        			<a class="btn" href="{{ module.buttonExternalUrl }}" target="_blank">{{ module.buttonText }}</a>
+			                        		</div>
+			                        	{% endif %}
 		                        	{% endif %}
 		                        </div>
 		                    </div>
@@ -44,7 +58,7 @@
 			                <div class="col">
 			                	{% if module.showTree %}
 				                    <div>
-				                        <img src="images/QCFT-Tree-Medium.png" alt="QC Family Tree">
+				                        <img src="/images/QCFT-Tree-Medium.png" alt="QC Family Tree">
 				                    </div>
 			                    {% endif %}
 			                    {% if module.header | length %}
@@ -150,6 +164,17 @@
 				            <div class="row">
 				                <div class="col-12 col-lg-10 col-xl-9 m-auto">
 	                        		{{ module.embedCode | raw }}
+				                </div>
+				            </div>
+				        </div>
+			    </div>
+
+			{% case "calendar" %}
+			    <div class="calendar">
+			    	<div class="container">
+				            <div class="row">
+				                <div class="col-12">
+	                        		<iframe src="https://calendar.google.com/calendar/embed?showTitle=0&amp;showCalendars=0&amp;mode=WEEK&amp;height=600&amp;wkst=1&amp;bgcolor=%23FFFFFF&amp;src=4li94olghbthi73ri4jtqjpfqk%40group.calendar.google.com&amp;color=%232952A3&amp;ctz=America%2FNew_York" style="border-width:0" width="800" height="600" frameborder="0" scrolling="no"></iframe>
 				                </div>
 				            </div>
 				        </div>
