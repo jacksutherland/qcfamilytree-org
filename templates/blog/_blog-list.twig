@@ -11,7 +11,7 @@
 						{% set image = '/images/blog-pad.jpg' %}
 					{% endif %}
 					{% if blog.blogHeaderImage.count %}
-						{% set image = blog.blogHeaderImage.one().url %}
+						{% set image = blog.blogHeaderImage.one().url('blog') %}
 					{% endif %}
 					<a class="blog" style="background-image: url({{ image }});" href="{{ blog.url }}">
 						<i class="fas {{ icon }}"></i>

@@ -15,7 +15,7 @@
 			<div class="row">
 				<div class="col">
 					{% if blog.blogHeaderImage.count %}
-						<div class="blog-image" style="background-image: url({{ blog.blogHeaderImage.one().url }});"></div>
+						<div class="blog-image" style="background-image: url({{ blog.blogHeaderImage.one().url('blog') }});"></div>
 					{% endif %}
 					{% if blog.blogCategories.contains('podcast') and blog.podcastEmbedCode | length %}
 						<div class="blog-podcast">
