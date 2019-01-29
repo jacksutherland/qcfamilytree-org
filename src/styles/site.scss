@@ -494,6 +494,67 @@ form {
 	}
 }
 
+.blog-list {
+	.blog {
+		display: block;
+		text-align: right;
+		margin: 40px 0;
+		background-color: #F1F1F1;
+		background-repeat: no-repeat;
+		background-size: cover;
+		background-position: center;
+		&:hover {
+			text-decoration: none;
+			.blog-title {
+				opacity: 1;
+			}
+			i {
+				opacity: 1;
+			}
+		}
+		i {
+			color: #fff;
+			font-size: 40px;
+			margin: 10px 12px 0 0;
+			opacity: 0.85;
+			transition: opacity 0.5s;
+		}
+		.blog-title {
+			opacity: 0.75;
+			transition: opacity 0.5s;
+			color: #fff;
+			margin: 200px 0 0 0;
+			padding: 5px 10px;
+			background: rgba(0, 0, 0, 0.65);
+			font-weight: 400;
+			text-align: left;
+		}
+	}
+}
+
+.blog-detail {
+	.blog-image {
+		height: 300px;
+		margin: 60px 0 0 0;
+		background-color: #F1F1F1;
+		background-repeat: no-repeat;
+		background-size: cover;
+		background-position: center;
+	}
+	.blog-podcast {
+		margin: 60px 0 0 0;
+	}
+	.blog-text {
+		margin: 60px 0;
+		h2, h3, h4, h5 {
+			margin: 30px 0 15px 0;
+		}
+		p {
+			margin: 15px 0;
+		}
+	}
+}
+
 
 /*** PHONE ***/
 
@@ -645,6 +706,11 @@ form {
 	}
 	.image-banner {
 		height: 450px;
+	}
+	.blog-list {
+		.blog {
+			margin: 60px 0;
+		}
 	}
 }
 

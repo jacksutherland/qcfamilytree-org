@@ -1,0 +1,32 @@
+{% extends "_layout" %}
+
+{% set blog = entry %}
+
+{% set entry = {
+	slug: blog.slug,
+	heroHeader: blog.blogHeader,
+	heroSubtitle: blog.dateCreated | date('M j, Y'),
+	heroButtonText: ''
+} %}
+
+{% block content %}
+	<div class="blog-detail">
+		<div class="container">
+			<div class="row">
+				<div class="col">
+					{% if blog.blogHeaderImage.count %}
+						<div class="blog-image" style="background-image: url({{ blog.blogHeaderImage.one().url }});"></div>
+					{% endif %}
+					{% if blog.blogCategories.contains('podcast') and blog.podcastEmbedCode | length %}
+						<div class="blog-podcast">
+							{{ blog.podcastEmbedCode | raw }}
+						</div>
+					{% endif %}
+					<div class="blog-text">
+						{{ blog.blogText | raw }}
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock %}

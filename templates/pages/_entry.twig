@@ -2,6 +2,10 @@
 
 {% block content %}
 
+	{% if entry.slug == 'blog' %}
+		{% include 'blog/_blog-list' %}
+	{% endif %}
+
     {% include '_includes/module' with { modules: entry.module } %}
 
 {% endblock %}

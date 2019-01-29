@@ -1,0 +1,27 @@
+<div class="container">
+	<div class="row">
+		<div class="col">
+			<div class="blog-list">
+				{% for blog in craft.entries.section('blog') %}
+					{% if blog.blogCategories.contains('podcast') %}
+						{% set icon = 'fa-podcast' %}
+						{% set image = '/images/blog-headphones.jpg' %}
+					{% else %}
+						{% set icon = 'fa-book-reader' %}
+						{% set image = '/images/blog-pad.jpg' %}
+					{% endif %}
+					{% if blog.blogHeaderImage.count %}
+						{% set image = blog.blogHeaderImage.one().url %}
+					{% endif %}
+					<a class="blog" style="background-image: url({{ image }});" href="{{ blog.url }}">
+						<i class="fas {{ icon }}"></i>
+						<div class="blog-title">
+							{{ blog.blogHeader }}
+						</div>
+					</a>
+
+				{% endfor %}
+			</div>
+		</div>
+	</div>
+</div>
