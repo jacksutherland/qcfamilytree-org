@@ -13,6 +13,11 @@ function died($error) {
     die();
 }
 
+if($_POST['firstname'] > 1) // Simple HPot Logic
+{
+    died('We are sorry, but there appears to be a problem with the form you submitted.');  
+}
+
 // validation expected data exists
 if(!isset($_POST['first']) ||
     !isset($_POST['last']) ||
