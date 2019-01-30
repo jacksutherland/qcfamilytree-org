@@ -97,8 +97,15 @@
 	                        	{% endif %}
 			                </div>
 			            </div>
-			            <form>
-			                <div class="row justify-content-md-center"">
+			            <form class="contact-form" action="/forms/sendmail.php">
+			            	<input type="hidden" name="toemail" value="{{ socialMedia.contactFormToEmailAddress }}">
+			            	<div class="row justify-content-md-center">
+			                    <div class="col-md-12 col-lg-8">
+			                    	<div class="d-none ty-message">{{ socialMedia.contactFormThankYouMessage }}</div>
+	                        		<div class="contact-form-errors"></div>
+	                        	</div>
+							</div>
+			                <div class="row justify-content-md-center">
 			                    <div class="col-md-6 col-lg-4">
 			                        <div>
 			                            <input type="text" name="first" placeholder="First Name *">
@@ -110,7 +117,7 @@
 			                        </div>
 			                    </div>
 			                </div>
-			                <div class="row justify-content-md-center"">
+			                <div class="row justify-content-md-center">
 			                    <div class="col-md-6 col-lg-4">
 			                        <div>
 			                            <input type="text" name="email" placeholder="Email *">
@@ -122,14 +129,14 @@
 			                        </div>
 			                    </div>
 			                </div>
-			                <div class="row justify-content-md-center"">
+			                <div class="row justify-content-md-center">
 			                    <div class="col-md-12 col-lg-8">
 			                        <div>
 			                            <textarea name="comments" placeholder="Message"></textarea>
 			                        </div>
 			                    </div>
 			                </div>
-			                <div class="row justify-content-md-center"">
+			                <div class="row justify-content-md-center">
 			                    <div class="col-md-12 col-lg-8">
 			                        <div>
 			                            <button class="btn">Send</button>

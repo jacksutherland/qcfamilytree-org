@@ -1,22 +1,44 @@
+{% set selectedCat = craft.request.getParam('category') %}
+{% if selectedCat == '' %}
+	{% set blogs = craft.entries.section('blog') %}
+{% else %}
+	{% set blogs = craft.entries.section('blog').blogCategories('*' ~ selectedCat ~ '*') %}
+{% endif %}
+
 <div class="container">
 	<div class="row">
 		<div class="col">
+			<div class="blog-categories">
+				<form action="{{ entry.url }}" method="get">
+					<select name="category" onchange="this.form.submit()">
+						<option value="">All Categories</option>
+						{% for option in craft.entries.section('blog').one().blogCategories.options %}
+					        <option value="{{ option.value }}"{% if option.value == selectedCat %} selected="selected" {% endif %}>
+					        	{{ option.label }}
+					        </option>
+					    {% endfor %}
+					</select>
+				</form>
+			</div>
 			<div class="blog-list">
-				{% for blog in craft.entries.section('blog') %}
+				{% for blog in blogs %}
 					{% if blog.blogCategories.contains('podcast') %}
 						{% set icon = 'fa-podcast' %}
+						{% set iconTitle = 'Click to hear this podcast' %}
 						{% set image = '/images/blog-headphones.jpg' %}
 					{% else %}
 						{% set icon = 'fa-book-reader' %}
+						{% set iconTitle = 'Click to read this article' %}
 						{% set image = '/images/blog-pad.jpg' %}
 					{% endif %}
 					{% if blog.blogHeaderImage.count %}
 						{% set image = blog.blogHeaderImage.one().url('blog') %}
 					{% endif %}
-					<a class="blog" style="background-image: url({{ image }});" href="{{ blog.url }}">
-						<i class="fas {{ icon }}"></i>
+					<a class="blog" style="background-image: url({{ image }});" href="{{ blog.url }}" title="{{ iconTitle }}">
+						<i class="fas {{ icon }}" title="{{ iconTitle }}"></i>
 						<div class="blog-title">
 							{{ blog.blogHeader }}
+							<p>{{ blog.blogIntro }} {# <u>Read More >></u> #}</p>
 						</div>
 					</a>
 

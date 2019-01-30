@@ -346,6 +346,21 @@ form input[type=text], form textarea {
   .contact h3, .contact h5 {
     text-align: center;
     margin-bottom: 15px; }
+  .contact .contact-form-errors {
+    color: #ee7243;
+    font-weight: 400;
+    text-align: center; }
+
+.blog-categories {
+  float: right;
+  width: 300px;
+  margin: 15px 0 0 0;
+  border: solid 1px #DDDDDD; }
+  .blog-categories form select {
+    height: 40px;
+    width: 100%;
+    border: none;
+    background-color: #FFF; }
 
 .blog-list .blog {
   display: block;
@@ -355,6 +370,8 @@ form input[type=text], form textarea {
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center; }
+  .blog-list .blog:first-child {
+    margin-top: 70px; }
   .blog-list .blog:hover {
     text-decoration: none; }
     .blog-list .blog:hover .blog-title {
@@ -363,6 +380,7 @@ form input[type=text], form textarea {
       opacity: 1; }
   .blog-list .blog i {
     color: #fff;
+    text-shadow: 0 0 3px #000;
     font-size: 40px;
     margin: 10px 12px 0 0;
     opacity: 0.85;
@@ -371,11 +389,15 @@ form input[type=text], form textarea {
     opacity: 0.75;
     transition: opacity 0.5s;
     color: #fff;
-    margin: 200px 0 0 0;
+    margin: 250px 0 0 0;
     padding: 5px 10px;
     background: rgba(0, 0, 0, 0.65);
     font-weight: 400;
-    text-align: left; }
+    text-align: left;
+    font-size: 1.2rem; }
+    .blog-list .blog .blog-title p {
+      font-weight: 200;
+      font-size: 1rem; }
 
 .blog-detail .blog-image {
   height: 300px;
