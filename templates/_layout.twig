@@ -4,6 +4,15 @@
 <html lang="en">
 
     <head>
+        <!-- Global site tag (gtag.js) - Google Analytics -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=UA-135901746-1"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'UA-135901746-1');
+        </script>
+
         <meta name="robots" content="noindex, nofollow">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
@@ -48,28 +57,35 @@
         {% if canonicalUrl | length %}
             <link rel="canonical" href="{{ canonicalUrl }}" />
         {% endif %}
+        #}
 
-        <meta property="og:title" content="{{ socialTitle }}">
-        <meta property="og:description" content="{{ pageDescription }}">
-        <meta property="og:url" content="{% if canonicalUrl | length %}{{ canonicalUrl }}{% else %}{{ craft.request.url }}{% endif %}">
-        {% if socialImage | length %}
-            <meta property="og:image" content="{{ socialImage }}">
+        {% if entry %}
+            {% if entry.heroHeader and entry.heroHeader | length %}
+                {% set socialTitle = entry.heroHeader %}
+                {% if entry.heroSubtitle and entry.heroSubtitle | length %}
+                    {% set socialDesc = socialTitle ~ ' - ' ~ entry.heroSubtitle %}
+                {% else %}
+                    {% set socialDesc = entry.title %}
+                {% endif %}
+            {% else %}
+                {% set socialTitle = entry.title %}
+                {% set socialDesc = entry.title %}
+            {% endif %}
+            <meta property="og:title" content="{{ socialTitle }}">
+            <meta property="og:description" content="{{ socialDesc }}">
+            <meta property="og:url" content="{{ craft.request.url }}">
+            {% if entry.heroImage is defined and entry.heroImage.count %}
+                <meta property="og:image" content="{{ siteUrl | slice(0,-1) }}{{ entry.heroImage.first().url }}">
+            {% endif %}
+
+            <meta name="twitter:card" content="{% if blog is defined %}blog{% else %}summary{% endif %}" />
+            <meta name="twitter:title" content="{{ socialTitle }}">
+            <meta name="twitter:description" content="{{ socialDesc }}">
+            {% if entry.heroImage is defined and entry.heroImage.count %}
+                <meta name="twitter:image" content="{{ siteUrl | slice(0,-1) }}{{ entry.heroImage.first().url }}">
+            {% endif %}
         {% endif %}
 
-        <meta name="twitter:card" content="summary" />
-        <meta name="twitter:title" content="{{ socialTitle }} ">
-        <meta name="twitter:description" content="{{ pageDescription }}">
-        {% if socialImage | length %}
-            <meta name="twitter:image" content="{{ socialImage }}">
-        {% endif %}
-
-        <!-- Google Tag Manager -->
-        <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-        })(window,document,'script','dataLayer','GTM-M6N6WCK');</script>
-        <!-- End Google Tag Manager --> #}
 
         <link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,500,500i" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css?family=Ubuntu:400,500,700" rel="stylesheet">
