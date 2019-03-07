@@ -688,6 +688,65 @@
         ]
     },
     {
+        "name": "dolphiq/sitemap",
+        "version": "1.0.9",
+        "version_normalized": "1.0.9.0",
+        "dist": {
+            "type": "zip",
+            "url": "https://api.github.com/repos/Dolphiq/craft3-plugin-sitemap/zipball/2cf2341e10710fb54c4decfcdc02bc90e7423553",
+            "reference": "2cf2341e10710fb54c4decfcdc02bc90e7423553",
+            "shasum": ""
+        },
+        "require": {
+            "craftcms/cms": "^3.0.0-RC11",
+            "jaybizzle/crawler-detect": "1.*"
+        },
+        "time": "2018-02-21T22:58:12+00:00",
+        "type": "craft-plugin",
+        "extra": {
+            "name": "XML Sitemap",
+            "handle": "sitemap",
+            "schemaVersion": "1.0.2",
+            "developer": "Dolphiq",
+            "developerUrl": "https://dolphiq.nl/",
+            "hasCpSettings": true,
+            "hasCpSection": false,
+            "components": {
+                "sitemapService": "dolphiq\\sitemap\\services\\SitemapService"
+            },
+            "documentationUrl": "https://github.com/Dolphiq/craft3-plugin-sitemap/blob/master/README.md",
+            "changelogUrl": "https://github.com/Dolphiq/craft3-plugin-sitemap/blob/master/CHANGELOG.md",
+            "class": "dolphiq\\sitemap\\Sitemap"
+        },
+        "installation-source": "dist",
+        "autoload": {
+            "psr-4": {
+                "dolphiq\\sitemap\\": "src/"
+            }
+        },
+        "license": [
+            "MIT"
+        ],
+        "authors": [
+            {
+                "name": "Dolphiq",
+                "email": "info@dolphiq.nl",
+                "homepage": "https://dolphiq.nl/"
+            }
+        ],
+        "description": "Craft 3 plugin that provides an easy way to provide and manage a XML sitemap for search engines like Google and Bing",
+        "keywords": [
+            "cms",
+            "craft",
+            "craft-plugin",
+            "craftcms",
+            "seo",
+            "sitemap",
+            "sitemap.xml",
+            "webmaster tools"
+        ]
+    },
+    {
         "name": "egulias/email-validator",
         "version": "2.1.6",
         "version_normalized": "2.1.6.0",
@@ -1024,6 +1083,47 @@
             "stream",
             "uri",
             "url"
+        ]
+    },
+    {
+        "name": "jaybizzle/crawler-detect",
+        "version": "v1.2.79",
+        "version_normalized": "1.2.79.0",
+        "dist": {
+            "type": "zip",
+            "url": "https://api.github.com/repos/JayBizzle/Crawler-Detect/zipball/e6ce66e9c892c42898cf84a35ecbfec5b4ab481c",
+            "reference": "e6ce66e9c892c42898cf84a35ecbfec5b4ab481c",
+            "shasum": ""
+        },
+        "require": {
+            "php": ">=5.3.0"
+        },
+        "time": "2019-03-04T19:10:41+00:00",
+        "type": "library",
+        "installation-source": "dist",
+        "autoload": {
+            "psr-4": {
+                "Jaybizzle\\CrawlerDetect\\": "src/"
+            }
+        },
+        "license": [
+            "MIT"
+        ],
+        "authors": [
+            {
+                "name": "Mark Beech",
+                "email": "m@rkbee.ch",
+                "role": "Developer"
+            }
+        ],
+        "description": "CrawlerDetect is a PHP class for detecting bots/crawlers/spiders via the user agent",
+        "homepage": "https://github.com/JayBizzle/Crawler-Detect/",
+        "keywords": [
+            "crawler",
+            "crawler detect",
+            "crawler detector",
+            "crawlerdetect",
+            "php crawler detect"
         ]
     },
     {

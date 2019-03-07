@@ -46,6 +46,10 @@ class ComposerStaticInit79ae69dc0f3507a74c70c8b1ecb5566c
         array (
             'enshrined\\svgSanitize\\' => 22,
         ),
+        'd' => 
+        array (
+            'dolphiq\\sitemap\\' => 16,
+        ),
         'c' => 
         array (
             'creocoder\\nestedsets\\' => 21,
@@ -94,6 +98,7 @@ class ComposerStaticInit79ae69dc0f3507a74c70c8b1ecb5566c
         'J' => 
         array (
             'JsonSchema\\' => 11,
+            'Jaybizzle\\CrawlerDetect\\' => 24,
         ),
         'G' => 
         array (
@@ -190,6 +195,10 @@ class ComposerStaticInit79ae69dc0f3507a74c70c8b1ecb5566c
         'enshrined\\svgSanitize\\' => 
         array (
             0 => __DIR__ . '/..' . '/enshrined/svg-sanitize/src',
+        ),
+        'dolphiq\\sitemap\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/dolphiq/sitemap/src',
         ),
         'creocoder\\nestedsets\\' => 
         array (
@@ -302,6 +311,10 @@ class ComposerStaticInit79ae69dc0f3507a74c70c8b1ecb5566c
         'JsonSchema\\' => 
         array (
             0 => __DIR__ . '/..' . '/justinrainbow/json-schema/src/JsonSchema',
+        ),
+        'Jaybizzle\\CrawlerDetect\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/jaybizzle/crawler-detect/src',
         ),
         'GuzzleHttp\\Psr7\\' => 
         array (
@@ -1081,6 +1094,11 @@ class ComposerStaticInit79ae69dc0f3507a74c70c8b1ecb5566c
         'Imagine\\Imagick\\Imagick' => __DIR__ . '/..' . '/pixelandtonic/imagine/lib/Imagine/Imagick/Imagick.php',
         'Imagine\\Imagick\\Imagine' => __DIR__ . '/..' . '/pixelandtonic/imagine/lib/Imagine/Imagick/Imagine.php',
         'Imagine\\Imagick\\Layers' => __DIR__ . '/..' . '/pixelandtonic/imagine/lib/Imagine/Imagick/Layers.php',
+        'Jaybizzle\\CrawlerDetect\\CrawlerDetect' => __DIR__ . '/..' . '/jaybizzle/crawler-detect/src/CrawlerDetect.php',
+        'Jaybizzle\\CrawlerDetect\\Fixtures\\AbstractProvider' => __DIR__ . '/..' . '/jaybizzle/crawler-detect/src/Fixtures/AbstractProvider.php',
+        'Jaybizzle\\CrawlerDetect\\Fixtures\\Crawlers' => __DIR__ . '/..' . '/jaybizzle/crawler-detect/src/Fixtures/Crawlers.php',
+        'Jaybizzle\\CrawlerDetect\\Fixtures\\Exclusions' => __DIR__ . '/..' . '/jaybizzle/crawler-detect/src/Fixtures/Exclusions.php',
+        'Jaybizzle\\CrawlerDetect\\Fixtures\\Headers' => __DIR__ . '/..' . '/jaybizzle/crawler-detect/src/Fixtures/Headers.php',
         'JsonSchema\\Constraints\\BaseConstraint' => __DIR__ . '/..' . '/justinrainbow/json-schema/src/JsonSchema/Constraints/BaseConstraint.php',
         'JsonSchema\\Constraints\\CollectionConstraint' => __DIR__ . '/..' . '/justinrainbow/json-schema/src/JsonSchema/Constraints/CollectionConstraint.php',
         'JsonSchema\\Constraints\\Constraint' => __DIR__ . '/..' . '/justinrainbow/json-schema/src/JsonSchema/Constraints/Constraint.php',
@@ -2643,6 +2661,17 @@ class ComposerStaticInit79ae69dc0f3507a74c70c8b1ecb5566c
         'craftcms\\oauth2\\client\\provider\\CraftIdUser' => __DIR__ . '/..' . '/craftcms/oauth2-craftid/src/provider/CraftIdUser.php',
         'creocoder\\nestedsets\\NestedSetsBehavior' => __DIR__ . '/..' . '/creocoder/yii2-nested-sets/src/NestedSetsBehavior.php',
         'creocoder\\nestedsets\\NestedSetsQueryBehavior' => __DIR__ . '/..' . '/creocoder/yii2-nested-sets/src/NestedSetsQueryBehavior.php',
+        'dolphiq\\sitemap\\Sitemap' => __DIR__ . '/..' . '/dolphiq/sitemap/src/Sitemap.php',
+        'dolphiq\\sitemap\\assetbundles\\Sitemap\\SitemapAsset' => __DIR__ . '/..' . '/dolphiq/sitemap/src/assetbundles/sitemap/SitemapAsset.php',
+        'dolphiq\\sitemap\\assetbundles\\indexcpsection\\IndexCPSectionAsset' => __DIR__ . '/..' . '/dolphiq/sitemap/src/assetbundles/indexcpsection/IndexCPSectionAsset.php',
+        'dolphiq\\sitemap\\controllers\\SettingsController' => __DIR__ . '/..' . '/dolphiq/sitemap/src/controllers/SettingsController.php',
+        'dolphiq\\sitemap\\controllers\\SitemapController' => __DIR__ . '/..' . '/dolphiq/sitemap/src/controllers/SitemapController.php',
+        'dolphiq\\sitemap\\migrations\\Install' => __DIR__ . '/..' . '/dolphiq/sitemap/src/migrations/Install.php',
+        'dolphiq\\sitemap\\migrations\\m171217_220906_c_crawler_visit_table' => __DIR__ . '/..' . '/dolphiq/sitemap/src/migrations/m171217_220906_c_crawler_visit_table.php',
+        'dolphiq\\sitemap\\models\\Settings' => __DIR__ . '/..' . '/dolphiq/sitemap/src/models/Settings.php',
+        'dolphiq\\sitemap\\records\\SitemapCrawlerVisit' => __DIR__ . '/..' . '/dolphiq/sitemap/src/records/SitemapCrawlerVisit.php',
+        'dolphiq\\sitemap\\records\\SitemapEntry' => __DIR__ . '/..' . '/dolphiq/sitemap/src/records/SitemapEntry.php',
+        'dolphiq\\sitemap\\services\\SitemapService' => __DIR__ . '/..' . '/dolphiq/sitemap/src/services/SitemapService.php',
         'enshrined\\svgSanitize\\Sanitizer' => __DIR__ . '/..' . '/enshrined/svg-sanitize/src/Sanitizer.php',
         'enshrined\\svgSanitize\\data\\AllowedAttributes' => __DIR__ . '/..' . '/enshrined/svg-sanitize/src/data/AllowedAttributes.php',
         'enshrined\\svgSanitize\\data\\AllowedTags' => __DIR__ . '/..' . '/enshrined/svg-sanitize/src/data/AllowedTags.php',
