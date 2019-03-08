@@ -563,12 +563,15 @@ form {
 
 .blog-detail {
 	.blog-image {
-		height: 300px;
-		margin: 60px 0 0 0;
-		background-color: #F1F1F1;
-		background-repeat: no-repeat;
-		background-size: cover;
-		background-position: center;
+		// height: 300px;
+		// margin: 60px 0 0 0;
+		// background-color: #F1F1F1;
+		// background-repeat: no-repeat;
+		// background-size: cover;
+		// background-position: center;
+		width: 100%;
+		margin: 60px auto 0 auto;
+		display: block;
 	}
 	.blog-podcast {
 		margin: 60px 0 0 0;
@@ -739,6 +742,12 @@ form {
 	.blog-list {
 		.blog {
 			margin: 60px 0;
+		}
+	}
+	.blog-detail {
+		.blog-image {
+			width: auto;
+			max-width: 80%;
 		}
 	}
 }
