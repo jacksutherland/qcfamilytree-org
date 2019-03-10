@@ -530,11 +530,15 @@ form {
 			text-align: center;
 			color: $white;
 			padding: 0 15px;
-			.btn {
-				margin: 20px 0 0 0;
+			h4 {
+				margin: 0 0 15px 0;
+			}
+			a {
+				margin: 10px 0 0 0;
 				display: block;
-				font-size: small;
-				padding: 8px 0;
+				&:hover {
+					color: $color-primary;
+				}
 			}
 		}
 	}
