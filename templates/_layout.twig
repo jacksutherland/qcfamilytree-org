@@ -16,8 +16,7 @@
         <meta name="robots" content="noindex, nofollow">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-
-        <link rel="canonical" href="{{ craft.request.url }}" />
+        <link rel="canonical" href="{% if entry.canonicalUrl | length %}{{ entry.canonicalUrl }}{% else %}{{ craft.request.url }}{% endif %}" />
 
         {# SEO and Social Meta Data #}
 
@@ -62,17 +61,22 @@
         #}
 
         {% if entry %}
-            {% if entry.heroHeader and entry.heroHeader | length %}
+            {% if entry.seoTitle | length %}
+                {% set socialTitle = entry.seoTitle %}
+            {% elseif entry.heroHeader and entry.heroHeader | length %}
                 {% set socialTitle = entry.heroHeader %}
-                {% if entry.heroSubtitle and entry.heroSubtitle | length %}
-                    {% set socialDesc = socialTitle ~ ' - ' ~ entry.heroSubtitle %}
-                {% else %}
-                    {% set socialDesc = entry.title %}
-                {% endif %}
             {% else %}
                 {% set socialTitle = entry.title %}
-                {% set socialDesc = entry.title %}
             {% endif %}
+            {% if entry.seoDescription | length  %}
+                {% set socialDesc = entry.seoDescription %}
+            {% else %}
+                {% set socialDesc = socialTitle %}
+            {% endif %}
+
+            <title>{{ socialTitle }} | QC Family Tree</title>
+            <meta name="description" content="{{ socialDesc }}">
+
             <meta property="og:title" content="{{ socialTitle }}">
             <meta property="og:description" content="{{ socialDesc }}">
             <meta property="og:url" content="{{ craft.request.url }}">
@@ -86,6 +90,8 @@
             {% if entry.heroImage is defined and entry.heroImage.count %}
                 <meta name="twitter:image" content="{{ siteUrl | slice(0,-1) }}{{ entry.heroImage.first().url }}">
             {% endif %}
+        {% else %}
+            <title>QC Family Tree</title>
         {% endif %}
 
 
