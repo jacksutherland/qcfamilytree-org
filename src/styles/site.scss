@@ -26,11 +26,11 @@ h1, h2, h3, h4, h5, h6 {
 h1 {
 	font-weight: 500;
 	font-family: 'Ubuntu', sans-serif;
-	font-size: 3.5rem;
-	line-height: 3.5rem;
+	font-size: 2.5rem;
+	line-height: 2.5rem;
 	text-transform: capitalize;
 	.subheader {
-		font-size: 2.25rem;
+		font-size: 1.75rem;
 		display: block;
 	}
 }
@@ -378,7 +378,7 @@ form {
     .hero-cover {
     	background-color: $black;
     	//background-color: linear-gradient(to right, $black, #444444); //, #444444);
-    	opacity: 0.35;
+    	opacity: 0.15;
     	height: $hero-height-mobile;
     	position: absolute;
     	z-index: 10;
@@ -721,8 +721,10 @@ form {
 
 	h1 {
 		font-size: 3.5rem;
+		line-height: 3.5rem;
 		.subheader {
 			margin-top: -8px;
+			font-size: 2.25rem;
 		}
 	}
 	header {

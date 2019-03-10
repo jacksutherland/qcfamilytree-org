@@ -10,11 +10,11 @@ h1, h2, h3, h4, h5, h6 {
 h1 {
   font-weight: 500;
   font-family: 'Ubuntu', sans-serif;
-  font-size: 3.5rem;
-  line-height: 3.5rem;
+  font-size: 2.5rem;
+  line-height: 2.5rem;
   text-transform: capitalize; }
   h1 .subheader {
-    font-size: 2.25rem;
+    font-size: 1.75rem;
     display: block; }
 
 h3 {
@@ -265,7 +265,7 @@ form input[type=text], form textarea {
           height: 100%; }
   .hero .hero-cover {
     background-color: #000000;
-    opacity: 0.35;
+    opacity: 0.15;
     height: 350px;
     position: absolute;
     z-index: 10;
@@ -540,9 +540,11 @@ form input[type=text], form textarea {
     to {
       opacity: 1; } }
   h1 {
-    font-size: 3.5rem; }
+    font-size: 3.5rem;
+    line-height: 3.5rem; }
     h1 .subheader {
-      margin-top: -8px; }
+      margin-top: -8px;
+      font-size: 2.25rem; }
   header .logo img {
     width: 350px; }
   header #hamburger {
