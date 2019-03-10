@@ -219,7 +219,7 @@
 								{% endif %}
 								{% if blog.blogHeaderImage.count %}
 									{% set image = blog.blogHeaderImage.one().url('blogThumbnail') %}
-									{% set image = '/images/blog-pad.jpg' %}
+									{# {% set image = '/images/blog-pad.jpg' %} #}
 								{% endif %}
 					            <div class="col-12 col-md-6 col-lg-3">
 				        			<a class="recent-post" style="background-image: url({{ image }});{% if module.numberOfPosts > 4 %} margin: 0 0 30px 0 !important;{% endif %}" href="{{ blog.url }}" title="{{ iconTitle }}">
