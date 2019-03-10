@@ -231,7 +231,7 @@ form input[type=text], form textarea {
       height: 700px; }
     .hero.large-hero .hero-cover {
       height: 700px;
-      opacity: 0.75; }
+      opacity: 0.5; }
   .hero .hero-content-container {
     display: table;
     opacity: 1;
@@ -362,6 +362,53 @@ form input[type=text], form textarea {
     border: none;
     background-color: #FFF; }
 
+.recent-blog-posts {
+  margin: 70px 0; }
+  .recent-blog-posts .recent-post-header {
+    margin: 0 0 30px 0;
+    height: 250px;
+    width: 100%;
+    background-color: #adb1c5;
+    display: table; }
+    .recent-blog-posts .recent-post-header .recent-post-content {
+      margin: 0 0 15px 0;
+      vertical-align: middle;
+      display: table-cell;
+      text-align: center;
+      color: #FFFFFF;
+      padding: 0 15px; }
+      .recent-blog-posts .recent-post-header .recent-post-content .btn {
+        margin: 20px 0 0 0;
+        display: block;
+        font-size: small;
+        padding: 8px 0; }
+  .recent-blog-posts .recent-post {
+    margin: 0 0 30px 0;
+    height: 250px;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    display: block; }
+    .recent-blog-posts .recent-post:hover .recent-post-content {
+      background-color: black;
+      padding: 20px 10px; }
+    .recent-blog-posts .recent-post .recent-post-content {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 5px 10px;
+      background-color: rgba(0, 0, 0, 0.65);
+      transition: background-color 0.5s, padding 0.25s; }
+      .recent-blog-posts .recent-post .recent-post-content .recent-post-category {
+        color: #ee7243;
+        text-transform: uppercase;
+        font-size: small;
+        font-weight: 500; }
+      .recent-blog-posts .recent-post .recent-post-content .recent-post-title {
+        color: #FFFFFF;
+        line-height: 20px; }
+
 .blog-list .blog {
   display: block;
   text-align: right;
@@ -375,7 +422,9 @@ form input[type=text], form textarea {
   .blog-list .blog:hover {
     text-decoration: none; }
     .blog-list .blog:hover .blog-title {
-      opacity: 1; }
+      opacity: 1;
+      padding: 30px 10px;
+      margin: 200px 0 0 0; }
     .blog-list .blog:hover i {
       opacity: 1; }
   .blog-list .blog i {
@@ -387,14 +436,17 @@ form input[type=text], form textarea {
     transition: opacity 0.5s; }
   .blog-list .blog .blog-title {
     opacity: 0.75;
-    transition: opacity 0.5s;
+    transition: opacity 0.5s, margin 0.25s, padding 0.25s;
     color: #fff;
     margin: 250px 0 0 0;
     padding: 5px 10px;
-    background: rgba(0, 0, 0, 0.65);
+    background: rgba(0, 0, 0, 0.85);
     font-weight: 400;
     text-align: left;
     font-size: 1.2rem; }
+    .blog-list .blog .blog-title .blog-category {
+      font-size: smaller;
+      color: #ee7243; }
     .blog-list .blog .blog-title p {
       font-weight: 200;
       font-size: 1rem; }
@@ -539,4 +591,8 @@ form input[type=text], form textarea {
     margin: 60px 0; }
   .blog-detail .blog-image {
     width: auto;
-    max-width: 80%; } }
+    max-width: 80%; }
+  .recent-blog-posts .recent-post-header {
+    margin: 0 0 0 0; }
+  .recent-blog-posts .recent-post {
+    margin: 0 0 0 0; } }

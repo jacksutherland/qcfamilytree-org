@@ -37,6 +37,11 @@
 					<a class="blog" style="background-image: url({{ image }});" href="{{ blog.url }}" title="{{ iconTitle }}">
 						<i class="fas {{ icon }}" title="{{ iconTitle }}"></i>
 						<div class="blog-title">
+							{% if blog.blogCategories.count %}
+				            	<div class="blog-category">
+				            		{{ blog.blogCategories[0].label }}
+				            	</div>
+			            	{% endif %}
 							{{ blog.blogHeader }}
 							<p>{{ blog.blogIntro }} {# <u>Read More >></u> #}</p>
 						</div>

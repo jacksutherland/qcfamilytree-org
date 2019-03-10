@@ -188,5 +188,57 @@
 				        </div>
 			    </div>
 
+			{% case "recentBlogPosts" %}
+				<div class="recent-blog-posts">
+				    <div class="container">
+				        <div class="row">
+				        	{% if module.header | length %}
+					        	<div class="col-12 col-md-6 col-lg-3">
+				        			<div class="recent-post-header"{% if module.numberOfPosts > 4 %} style="margin: 0 0 30px 0 !important;"{% endif %}>
+					        			<div class="recent-post-content">
+							            	<h4>{{ module.header }}</h4>
+							            	<div>
+			                        			<a class="btn" href="/blog"><i class="fas fa-book-reader" title="Read More"></i> Read More</a>
+			                        		</div>
+			                        		<div>
+			                        			<a class="btn" href="/blog?category=podcast"><i class="fas fa-podcast" title="Podcasts"></i> Podcasts</a>
+			                        		</div>
+							            </div>
+						            </div>
+					            </div>
+				            {% endif %}
+				        	{% for blog in craft.entries.section('blog').limit(module.header | length ? (module.numberOfPosts - 1) : module.numberOfPosts) %}
+				        		{% if blog.blogCategories.contains('podcast') %}
+									{# {% set icon = 'fa-podcast' %} #}
+									{% set iconTitle = 'Click to hear this podcast' %}
+									{% set image = '/images/blog-headphones.jpg' %}
+								{% else %}
+									{# {% set icon = 'fa-book-reader' %} #}
+									{% set iconTitle = 'Click to read this article' %}
+									{% set image = '/images/blog-pad.jpg' %}
+								{% endif %}
+								{% if blog.blogHeaderImage.count %}
+									{% set image = blog.blogHeaderImage.one().url('blogThumbnail') %}
+									{% set image = '/images/blog-pad.jpg' %}
+								{% endif %}
+					            <div class="col-12 col-md-6 col-lg-3">
+				        			<a class="recent-post" style="background-image: url({{ image }});{% if module.numberOfPosts > 4 %} margin: 0 0 30px 0 !important;{% endif %}" href="{{ blog.url }}" title="{{ iconTitle }}">
+				        				<div class="recent-post-content">
+				        					{% if blog.blogCategories.count %}
+								            	<div class="recent-post-category">
+								            		{{ blog.blogCategories[0].label }}
+								            	</div>
+							            	{% endif %}
+							            	<div class="recent-post-title">
+							            		{{ blog.title }}
+							            	</div>
+						            	</div>
+						            </a>
+					            </div>
+				            {% endfor %}
+				        </div>
+				    </div>
+				</div>
+
 	{% endswitch %}	
 {% endfor %}

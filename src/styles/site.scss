@@ -8,6 +8,7 @@ $black: #000000;
 $border-color: #DDDDDD;
 $color-primary: lighten(#ED6B3A, 2%);
 $color-secondary: lighten(#8F94B0, 2%);
+$color-secondary-lighter: lighten($color-secondary, 8%);
 $font-color: #111111;
 $hero-transition-duration: 10s;
 
@@ -329,7 +330,7 @@ form {
     	}
     	.hero-cover {
 	    	height: $large-hero-height-mobile;
-	    	opacity: 0.75;
+	    	opacity: 0.5;
 	    }
     }
     .hero-content-container {
@@ -442,7 +443,7 @@ form {
 }
 
 .text-banner {
-	background-color: lighten($color-secondary, 8%);
+	background-color: $color-secondary-lighter;
 	padding: 70px 0;
 	text-align: center;
 	color: $white;
@@ -514,6 +515,64 @@ form {
 	}
 }
 
+.recent-blog-posts {
+	margin: 70px 0;
+	.recent-post-header {
+		margin: 0 0 30px 0;
+		height: 250px;
+		width: 100%;
+		background-color: $color-secondary-lighter;
+		display: table;
+		.recent-post-content {
+			margin: 0 0 15px 0;
+			vertical-align: middle;
+			display: table-cell;
+			text-align: center;
+			color: $white;
+			padding: 0 15px;
+			.btn {
+				margin: 20px 0 0 0;
+				display: block;
+				font-size: small;
+				padding: 8px 0;
+			}
+		}
+	}
+	.recent-post {
+		margin: 0 0 30px 0;
+		height: 250px;
+		background-size: cover;
+		background-position: center;
+		position: relative;
+		display: block;
+		&:hover {
+			.recent-post-content {
+				background-color: rgba(0, 0, 0, 1);
+				padding: 20px 10px;
+			}
+		}
+		.recent-post-content {
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			padding: 5px 10px;
+			background-color: rgba(0, 0, 0, 0.65);
+			transition: background-color 0.5s, padding 0.25s;
+			.recent-post-category {
+				color: $color-primary;
+				text-transform: uppercase;
+				font-size: small;
+				font-weight: 500;
+			}
+			.recent-post-title {
+				color: $white;
+				line-height: 20px;
+			}
+		}
+	}
+}
+
 .blog-list {
 	.blog {
 		display: block;
@@ -530,6 +589,8 @@ form {
 			text-decoration: none;
 			.blog-title {
 				opacity: 1;
+				padding: 30px 10px;
+				margin: 200px 0 0 0;
 			}
 			i {
 				opacity: 1;
@@ -545,14 +606,18 @@ form {
 		}
 		.blog-title {
 			opacity: 0.75;
-			transition: opacity 0.5s;
+			transition: opacity 0.5s, margin 0.25s, padding 0.25s;
 			color: #fff;
 			margin: 250px 0 0 0;
 			padding: 5px 10px;
-			background: rgba(0, 0, 0, 0.65);
+			background: rgba(0, 0, 0, 0.85);
 			font-weight: 400;
 			text-align: left;
 			font-size: 1.2rem;
+			.blog-category {
+				font-size: smaller;
+				color: $color-primary;
+			}
 			p {
 				font-weight: 200;
 				font-size: 1rem;
@@ -748,6 +813,14 @@ form {
 		.blog-image {
 			width: auto;
 			max-width: 80%;
+		}
+	}
+	.recent-blog-posts {
+		.recent-post-header {
+			margin: 0 0 0 0;
+		}
+		.recent-post {
+			margin: 0 0 0 0;
 		}
 	}
 }
