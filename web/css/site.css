@@ -265,7 +265,7 @@ form input[type=text], form textarea {
           height: 100%; }
   .hero .hero-cover {
     background-color: #000000;
-    opacity: 0.15;
+    opacity: 0.2;
     height: 350px;
     position: absolute;
     z-index: 10;
