@@ -1,4 +1,4 @@
-{% set resourceVersion = "1.4" %}
+{% set resourceVersion = "2.0" %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -19,46 +19,6 @@
         <link rel="canonical" href="{% if entry.canonicalUrl | length %}{{ entry.canonicalUrl }}{% else %}{{ craft.request.url }}{% endif %}" />
 
         {# SEO and Social Meta Data #}
-
-       {#  {% set pageTitle = defaultSeo.seoTitle ~ ' ' ~ defaultSeo.seoTitleSuffix %}
-        {% set socialTitle = defaultSeo.seoTitle %}
-        {% set pageDescription = '' %}
-        {% set socialImage = '' %}
-        {% set canonicalUrl = '' %}
-
-        {% if entry %}
-            {% if entry.seoTitle and entry.seoTitle | length %}
-                {% set pageTitle = entry.seoTitle ~ ' ' ~ defaultSeo.seoTitleSuffix %}
-                {% set socialTitle = entry.seoTitle %}
-            {% else %}
-                {% set pageTitle = entry.title ~ ' ' ~ defaultSeo.seoTitleSuffix %}
-                {% set socialTitle = entry.title %}
-            {% endif %}
-            {% if entry.seoDescription and entry.seoDescription | length %}
-                {% set pageDescription = entry.seoDescription %}
-            {% endif %}
-            {% if entry.canonicalUrl and entry.canonicalUrl | length %}
-                {% set canonicalUrl = entry.canonicalUrl %}
-            {% endif %}
-            {% if entry.heroBackgroundImage and entry.heroBackgroundImage.count %}
-                {% set socialImage = entry.heroBackgroundImage.one().url %}
-            {% elseif entry.productImage and entry.productImage.count %}
-                {% set socialImage = entry.productImage.one().url %}
-            {% elseif entry.solutionImage and entry.solutionImage.count %}
-                {% set socialImage = entry.solutionImage.one().url %}
-            {% elseif entry.industryImage and entry.industryImage.count %}
-                {% set socialImage = entry.industryImage.one().url %}
-            {% endif %}
-        {% endif %}
-
-        <title>{{ pageTitle }}</title>
-        {% if pageDescription | length %}
-            <meta name="description" content="{{ pageDescription }}">
-        {% endif %}
-        {% if canonicalUrl | length %}
-            <link rel="canonical" href="{{ canonicalUrl }}" />
-        {% endif %}
-        #}
 
         {% if entry %}
             {% if entry.seoTitle | length %}

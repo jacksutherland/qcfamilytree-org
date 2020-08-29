@@ -33,7 +33,7 @@ h5 {
   font-weight: 300; }
 
 a {
-  color: #5e6485; }
+  color: #030105; }
 
 p {
   margin: 0; }
@@ -42,13 +42,13 @@ q {
   font-style: italic; }
 
 .btn {
-  background-color: #ee7243;
+  background-color: #3d1a52;
   color: #FFFFFF;
   padding: 10px 30px;
   border-radius: 4px;
   text-transform: uppercase; }
   .btn:hover {
-    background-color: #eb5923;
+    background-color: #5a2679;
     color: #FFFFFF; }
 
 .site-container {
@@ -64,9 +64,26 @@ header {
   height: 92px;
   padding: 20px 0;
   background-color: #FFFFFF;
-  border: 1px solid #DDDDDD; }
-  header .logo img {
-    width: 275px; }
+  border-bottom: 1px solid #DDDDDD; }
+  header .logo {
+    position: absolute;
+    top: -5px;
+    background: #FFFFFF;
+    padding: 10px;
+    border-radius: 70px;
+    border-bottom: 1px solid #DDDDDD;
+    transform: rotate(0deg);
+    transition-property: transform;
+    transition-duration: .15s;
+    transition-timing-function: ease-in; }
+    header .logo:hover {
+      text-decoration: none;
+      transform: rotate(35deg);
+      transition-duration: 1.3s;
+      transition-timing-function: ease-out; }
+    header .logo img {
+      height: 120px;
+      width: 120px; }
   header #hamburger {
     float: right;
     color: #000;
@@ -111,17 +128,16 @@ header {
           text-transform: uppercase;
           font-family: 'Ubuntu', sans-serif;
           font-size: 1rem;
-          color: #111111;
+          color: #3d1a52;
           transition: border-width 0.15s linear; }
           header nav.main-nav ul li a:not(.btn):hover {
-            border-bottom: solid 4px #ee7243; }
+            border-bottom: solid 4px #b3be35; }
         header nav.main-nav ul li.social a {
           margin: 0 5px; }
           header nav.main-nav ul li.social a i {
-            font-size: 1.45rem;
-            color: #959ab4; }
+            font-size: 1.45rem; }
           header nav.main-nav ul li.social a:hover i {
-            color: #71779b; }
+            color: #1a0b24; }
         header nav.main-nav ul li .btn {
           margin: 0 0 0 10px; }
         header nav.main-nav ul li .drop-down-nav {
@@ -154,7 +170,7 @@ header {
                 header nav.main-nav ul li .drop-down-nav .drop-down-container h4 a:hover {
                   border-bottom: none; }
                   header nav.main-nav ul li .drop-down-nav .drop-down-container h4 a:hover i {
-                    color: #ee7243; }
+                    color: #b3be35; }
             header nav.main-nav ul li .drop-down-nav .drop-down-container .child-nav {
               margin: 20px 0; }
               header nav.main-nav ul li .drop-down-nav .drop-down-container .child-nav a {
@@ -172,19 +188,20 @@ footer {
     transition: color 0.35s linear;
     margin: 5px 0; }
     footer a:hover {
-      color: #FFFFFF;
+      color: #b3be35;
       text-decoration: none; }
   footer .logo img {
-    height: 80px; }
+    height: 110px;
+    margin-bottom: 10px; }
   footer .social-footer {
     border-top: solid 1px #666666;
     padding: 30px 0;
     margin: 50px 0 0 0; }
     footer .social-footer a:hover i {
-      color: #71779b; }
+      color: #b3be35; }
     footer .social-footer a i {
       font-size: 2rem;
-      color: #959ab4;
+      color: #999999;
       padding: 0 10px;
       transition: color 0.35s linear; }
   footer nav ul {
@@ -248,7 +265,7 @@ form input[type=text], form textarea {
         color: #FFFFFF;
         opacity: 1; }
         .hero .hero-content-container .hero-content .hero-text h1 .subheader {
-          color: #ee7243; }
+          color: #b3be35; }
       .hero .hero-content-container .hero-content .hero-text .hero-cta {
         opacity: 1; }
         .hero .hero-content-container .hero-content .hero-text .hero-cta p {
@@ -259,8 +276,8 @@ form input[type=text], form textarea {
       .hero .hero-content-container .hero-content .hero-tree {
         text-align: center;
         opacity: 1;
-        height: 200px;
-        margin-bottom: -50px; }
+        height: 250px;
+        margin-bottom: 20px; }
         .hero .hero-content-container .hero-content .hero-tree img {
           height: 100%; }
   .hero .hero-cover {
@@ -298,7 +315,7 @@ form input[type=text], form textarea {
       .z-pattern .text-block .text-block-content i {
         margin: 20px 0;
         font-size: 4rem;
-        color: #959ab4; }
+        color: #3d1a52; }
       .z-pattern .text-block .text-block-content h4 {
         margin: 20px 0; }
       .z-pattern .text-block .text-block-content h5 {
@@ -307,7 +324,7 @@ form input[type=text], form textarea {
           font-weight: 500; }
 
 .text-banner {
-  background-color: #adb1c5;
+  background-color: #3d1a52;
   padding: 70px 0;
   text-align: center;
   color: #FFFFFF; }
@@ -318,6 +335,8 @@ form input[type=text], form textarea {
   .text-banner q {
     margin: 0 10px;
     display: block; }
+  .text-banner .btn {
+    border: solid 2px #FFFFFF; }
 
 .video {
   margin: 70px 0; }
@@ -347,7 +366,7 @@ form input[type=text], form textarea {
     text-align: center;
     margin-bottom: 15px; }
   .contact .contact-form-errors {
-    color: #ee7243;
+    color: #3d1a52;
     font-weight: 400;
     text-align: center; }
 
@@ -368,7 +387,7 @@ form input[type=text], form textarea {
     margin: 0 0 30px 0;
     height: 250px;
     width: 100%;
-    background-color: #adb1c5;
+    background-color: #b3be35;
     display: table; }
     .recent-blog-posts .recent-post-header .recent-post-content {
       margin: 0 0 15px 0;
@@ -383,7 +402,7 @@ form input[type=text], form textarea {
         margin: 10px 0 0 0;
         display: block; }
         .recent-blog-posts .recent-post-header .recent-post-content a:hover {
-          color: #ee7243; }
+          color: #b3be35; }
   .recent-blog-posts .recent-post {
     margin: 0 0 30px 0;
     height: 250px;
@@ -403,7 +422,7 @@ form input[type=text], form textarea {
       background-color: rgba(0, 0, 0, 0.65);
       transition: background-color 0.5s, padding 0.25s; }
       .recent-blog-posts .recent-post .recent-post-content .recent-post-category {
-        color: #ee7243;
+        color: #b3be35;
         text-transform: uppercase;
         font-size: small;
         font-weight: 500; }
@@ -424,21 +443,18 @@ form input[type=text], form textarea {
   .blog-list .blog:hover {
     text-decoration: none; }
     .blog-list .blog:hover .blog-title {
-      opacity: 1;
       padding: 30px 10px;
       margin: 200px 0 0 0; }
     .blog-list .blog:hover i {
-      opacity: 1; }
+      color: #b3be35; }
   .blog-list .blog i {
     color: #fff;
     text-shadow: 0 0 3px #000;
     font-size: 40px;
     margin: 10px 12px 0 0;
-    opacity: 0.85;
-    transition: opacity 0.5s; }
+    transition: color 0.5s; }
   .blog-list .blog .blog-title {
-    opacity: 0.75;
-    transition: opacity 0.5s, margin 0.25s, padding 0.25s;
+    transition: margin 0.25s, padding 0.25s;
     color: #fff;
     margin: 250px 0 0 0;
     padding: 5px 10px;
@@ -448,7 +464,7 @@ form input[type=text], form textarea {
     font-size: 1.2rem; }
     .blog-list .blog .blog-title .blog-category {
       font-size: smaller;
-      color: #ee7243; }
+      color: #b3be35; }
     .blog-list .blog .blog-title p {
       font-weight: 200;
       font-size: 1rem; }
@@ -484,35 +500,35 @@ form input[type=text], form textarea {
   @keyframes cover-animation {
     from {
       opacity: 0;
-      background-color: #FFFFFF; }
+      background-color: #000000; }
     10% {
       opacity: 0; }
-    35% {
-      opacity: 0.75;
-      background-color: #FFFFFF; }
-    42% {
+    45% {
       opacity: 0.65;
       background-color: #000000; }
-    45% { }
+    52% {
+      opacity: 0.65;
+      background-color: #000000; }
+    55% { }
     80% { }
     to { } }
   @keyframes tree-animation {
     from {
       opacity: 0;
-      height: 600px;
+      height: 500px;
       margin-top: 7%; }
     10% {
       opacity: 0; }
-    35% {
+    30% {
+      opacity: 1; }
+    45% {
       opacity: 1;
-      height: 600px;
-      margin-top: 7%;
-      margin-bottom: 0; }
-    42% {
-      height: 200px;
-      margin-top: 0;
-      margin-bottom: -50px; }
-    45% { }
+      height: 500px;
+      margin-top: 7%; }
+    52% {
+      height: 250px;
+      margin-top: 0; }
+    55% { }
     80% { }
     to { } }
   @keyframes header-animation {
@@ -520,13 +536,13 @@ form input[type=text], form textarea {
       opacity: 0;
       margin-top: 0; }
     10% { }
-    35% {
+    45% {
       opacity: 0;
       margin-top: 500px; }
-    42% {
+    52% {
       opacity: 1;
       margin-top: 0; }
-    45% { }
+    55% { }
     80% { }
     to { } }
   @keyframes cta-animation {
@@ -547,8 +563,6 @@ form input[type=text], form textarea {
     h1 .subheader {
       margin-top: -8px;
       font-size: 2.25rem; }
-  header .logo img {
-    width: 350px; }
   header #hamburger {
     display: none; }
   header nav.mobile-menu {

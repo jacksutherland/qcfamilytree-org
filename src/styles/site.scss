@@ -6,11 +6,14 @@ $small-hero-height: 200px;
 $white: #FFFFFF;
 $black: #000000;
 $border-color: #DDDDDD;
-$color-primary: lighten(#ED6B3A, 2%);
-$color-secondary: lighten(#8F94B0, 2%);
+$color-primary: #b3be35; //lighten(#ED6B3A, 2%);
+$color-secondary: #3d1a52; //lighten(#8F94B0, 2%);
 $color-secondary-lighter: lighten($color-secondary, 8%);
 $font-color: #111111;
 $hero-transition-duration: 10s;
+
+// $brand-dark-color: #3d1a52;
+// $brand-light-color: #b3be35;
 
 body {
 	font-family: 'Roboto', sans-serif;
@@ -67,13 +70,13 @@ q {
 }
 
 .btn {
-	background-color: $color-primary;
+	background-color: $color-secondary;
 	color: $white;
 	padding: 10px 30px;
 	border-radius: 4px;
 	text-transform: uppercase;
 	&:hover {
-		background-color: darken($color-primary, 7%);
+		background-color: lighten($color-secondary, 10%);
 		color: $white;
 	}
 }
@@ -92,11 +95,27 @@ header {
 	height: 92px;
 	padding: 20px 0;
 	background-color: $white;
-	border: 1px solid $border-color;
-    // box-shadow: 1px 1px 3px 0 #f2f2f2;
+	border-bottom: 1px solid $border-color;
 	.logo {
+		position: absolute;
+        top: -5px;
+        background: $white;
+        padding: 10px;
+        border-radius: 70px;
+        border-bottom: 1px solid $border-color;
+        transform: rotate(0deg);
+        transition-property: transform;
+        transition-duration: .15s;
+        transition-timing-function: ease-in;
+        &:hover {
+        	text-decoration: none;
+        	transform: rotate(35deg);
+            transition-duration: 1.3s;
+            transition-timing-function: ease-out;
+        }
 		img {
-			width: 275px
+	        height: 120px;
+	        width: 120px;
 		}
 	}
 	#hamburger {
@@ -151,7 +170,7 @@ header {
 					text-transform: uppercase;
 					font-family: 'Ubuntu', sans-serif;
 					font-size: 1rem;
-					color: $font-color;
+					color: $color-secondary;
 					transition: border-width 0.15s linear;
 					&:hover {
 						border-bottom: solid 4px $color-primary;
@@ -162,10 +181,9 @@ header {
 						margin: 0 5px;
 						i {
 							font-size: 1.45rem;
-							color: $color-secondary;
+							//color: $color-primary;
 						}
 						&:hover {
-							//border-bottom: none;
 							i {
 								color: darken($color-secondary, 12%);
 							}
@@ -239,13 +257,14 @@ footer {
 		transition: color 0.35s linear;
 		margin:5px 0;
 		&:hover {
-			color: $white;
+			color: $color-primary;
 			text-decoration: none;
 		}
 	}
 	.logo {
 		img {
-			height: 80px;
+			height: 110px;
+		    margin-bottom: 10px;
 		}
 	}
 	.social-footer {
@@ -255,12 +274,12 @@ footer {
 		a {
 			&:hover {
 				i {
-					color: darken($color-secondary, 12%);
+					color: $color-primary;
 				}
 			}
 			i {
 				font-size: 2rem;
-				color: $color-secondary;
+				color: #999999;
 				padding: 0 10px;
 				transition: color 0.35s linear;
 			}
@@ -367,8 +386,8 @@ form {
     		.hero-tree {
 		    	text-align: center;
 				opacity: 1;
-				height: 200px;
-				margin-bottom: -50px;
+				height: 250px;
+				margin-bottom: 20px;
 		    	img {
 					height: 100%;
 		    	}
@@ -377,7 +396,6 @@ form {
     }
     .hero-cover {
     	background-color: $black;
-    	//background-color: linear-gradient(to right, $black, #444444); //, #444444);
     	opacity: 0.2;
     	height: $hero-height-mobile;
     	position: absolute;
@@ -443,7 +461,7 @@ form {
 }
 
 .text-banner {
-	background-color: $color-secondary-lighter;
+	background-color: $color-secondary;
 	padding: 70px 0;
 	text-align: center;
 	color: $white;
@@ -456,6 +474,9 @@ form {
 	q {
 		margin: 0 10px;
 		display: block;
+	}
+	.btn {
+		border: solid 2px $white;
 	}
 }
 
@@ -494,7 +515,7 @@ form {
 		margin-bottom: 15px;
 	}
 	.contact-form-errors {
-		color: #ee7243;
+		color: $color-secondary;
 		font-weight: 400;
 		text-align: center;
 	}
@@ -521,7 +542,7 @@ form {
 		margin: 0 0 30px 0;
 		height: 250px;
 		width: 100%;
-		background-color: $color-secondary-lighter;
+		background-color: $color-primary;
 		display: table;
 		.recent-post-content {
 			margin: 0 0 15px 0;
@@ -592,12 +613,11 @@ form {
 		&:hover {
 			text-decoration: none;
 			.blog-title {
-				opacity: 1;
 				padding: 30px 10px;
 				margin: 200px 0 0 0;
 			}
 			i {
-				opacity: 1;
+				color: $color-primary;
 			}
 		}
 		i {
@@ -605,12 +625,10 @@ form {
 			text-shadow: 0 0 3px #000;
 			font-size: 40px;
 			margin: 10px 12px 0 0;
-			opacity: 0.85;
-			transition: opacity 0.5s;
+			transition: color 0.5s;
 		}
 		.blog-title {
-			opacity: 0.75;
-			transition: opacity 0.5s, margin 0.25s, padding 0.25s;
+			transition: margin 0.25s, padding 0.25s;
 			color: #fff;
 			margin: 250px 0 0 0;
 			padding: 5px 10px;
@@ -684,21 +702,22 @@ form {
 @media (min-width: 992px) {
 
 	@keyframes cover-animation {
-	    from { opacity: 0; background-color: $white; }
+	    from { opacity: 0; background-color: $black; }
 	    10% { opacity: 0; }
-	    35% { opacity: 0.75; background-color: $white; }
-	    42% { opacity: 0.65; background-color: $black; }
-	    45% {  }
+	    45% { opacity: 0.65; background-color: $black; }
+	    52% { opacity: 0.65; background-color: $black; }
+	    55% {  }
 	    80% {  }
 	    to   {  }
 	}
 
 	@keyframes tree-animation {
-	    from { opacity: 0; height: 600px; margin-top:7%; }
+	    from { opacity: 0; height: 500px; margin-top:7%; }
 	    10% { opacity: 0; }
-	    35% { opacity: 1; height: 600px; margin-top:7%; margin-bottom: 0; }
-	    42% { height: 200px; margin-top:0; margin-bottom: -50px; }
-	    45% {  }
+	    30% { opacity: 1; }
+	    45% { opacity: 1; height: 500px; margin-top:7%; }
+	    52% { height: 250px; margin-top:0; }
+	    55% {  }
 	    80% {  }
 	    to   {  }
 	}
@@ -706,9 +725,9 @@ form {
 	@keyframes header-animation {
 	    from { opacity: 0; margin-top: 0; }
 	    10% { }
-	    35% { opacity: 0; margin-top: 500px; }
-	    42% { opacity: 1; margin-top: 0; }
-	    45% {  }
+	    45% { opacity: 0; margin-top: 500px; }
+	    52% { opacity: 1; margin-top: 0; }
+	    55% {  }
 	    80% {  }
 	    to  {  }
 	}
@@ -732,11 +751,6 @@ form {
 		}
 	}
 	header {
-		.logo {
-			img {
-				width: 350px
-			}
-		}
 		#hamburger {
 			display: none;
 		}
