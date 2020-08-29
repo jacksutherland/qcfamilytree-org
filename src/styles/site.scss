@@ -196,7 +196,7 @@ header {
 					z-index: 110;
 					//top: 91px;
 					margin-top: 1px;
-					left: 45%;
+					left: 25%;
 					right: 5%;
 					max-width: 1110px;
 					width: 100%;
@@ -856,4 +856,31 @@ form {
 	}
 }
 
+@media (min-width: 1200px) {
+    header {
+    	nav.main-nav {
+    		ul {
+    			li {
+    				.drop-down-nav {
+                        left: 30%;
+    				}
+    			}
+    		}
+    	}
+    }
+}
+
+@media (min-width: 1500px) {
+    header {
+    	nav.main-nav {
+    		ul {
+    			li {
+    				.drop-down-nav {
+                        left: 40%;
+    				}
+    			}
+    		}
+    	}
+    }
+}
 
