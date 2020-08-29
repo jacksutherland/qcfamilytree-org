@@ -99,10 +99,8 @@ header {
 	.logo {
 		position: absolute;
         top: -5px;
-        background: $white;
         padding: 10px;
         border-radius: 70px;
-        border-bottom: 1px solid $border-color;
         transform: rotate(0deg);
         transition-property: transform;
         transition-duration: .15s;
@@ -114,8 +112,8 @@ header {
             transition-timing-function: ease-out;
         }
 		img {
-	        height: 120px;
-	        width: 120px;
+	        height: 80px;
+	        width: 80px;
 		}
 	}
 	#hamburger {
@@ -678,6 +676,16 @@ form {
 /*** PHONE ***/
 
 @media (min-width: 768px) {
+	header {
+		.logo {
+			border-bottom: 1px solid $border-color;
+			background: $white;
+			img {
+				height: 120px;
+	            width: 120px;
+			}
+		}
+	}
 	.z-pattern {
 		.row {
 			.col-md-6 {

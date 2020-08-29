@@ -68,10 +68,8 @@ header {
   header .logo {
     position: absolute;
     top: -5px;
-    background: #FFFFFF;
     padding: 10px;
     border-radius: 70px;
-    border-bottom: 1px solid #DDDDDD;
     transform: rotate(0deg);
     transition-property: transform;
     transition-duration: .15s;
@@ -82,8 +80,8 @@ header {
       transition-duration: 1.3s;
       transition-timing-function: ease-out; }
     header .logo img {
-      height: 120px;
-      width: 120px; }
+      height: 80px;
+      width: 80px; }
   header #hamburger {
     float: right;
     color: #000;
@@ -486,6 +484,12 @@ form input[type=text], form textarea {
 
 /*** PHONE ***/
 @media (min-width: 768px) {
+  header .logo {
+    border-bottom: 1px solid #DDDDDD;
+    background: #FFFFFF; }
+    header .logo img {
+      height: 120px;
+      width: 120px; }
   .z-pattern .row .col-md-6:nth-child(odd) {
     padding-right: 0; }
   .z-pattern .row .col-md-6:nth-child(even) {
