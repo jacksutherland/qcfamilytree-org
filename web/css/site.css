@@ -141,6 +141,7 @@ header {
         header nav.main-nav ul li .drop-down-nav {
           position: fixed;
           z-index: 110;
+          margin-top: 1px;
           left: 45%;
           right: 5%;
           max-width: 1110px;
