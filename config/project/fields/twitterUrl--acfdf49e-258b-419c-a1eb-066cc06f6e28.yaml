@@ -1,0 +1,16 @@
+contentColumnType: text
+fieldGroup: ad70e420-b63d-48b6-98a8-053806147750
+handle: twitterUrl
+instructions: ''
+name: 'Twitter Url'
+searchable: true
+settings:
+  charLimit: ''
+  code: ''
+  columnType: text
+  initialRows: '4'
+  multiline: ''
+  placeholder: ''
+translationKeyFormat: null
+translationMethod: none
+type: craft\fields\PlainText

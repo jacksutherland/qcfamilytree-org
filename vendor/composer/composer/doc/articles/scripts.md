@@ -29,6 +29,7 @@ Composer fires the following named events during its execution process:
   the `install` command is executed without a lock file present.
 - **post-update-cmd**: occurs after the `update` command has been executed, or
   after the `install` command has been executed without a lock file present.
+- **pre-status-cmd**: occurs before the `status` command is executed.
 - **post-status-cmd**: occurs after the `status` command has been executed.
 - **pre-archive-cmd**: occurs before the `archive` command is executed.
 - **post-archive-cmd**: occurs after the `archive` command has been executed.
@@ -37,14 +38,17 @@ Composer fires the following named events during its execution process:
 - **post-autoload-dump**: occurs after the autoloader has been dumped, either
   during `install`/`update`, or via the `dump-autoload` command.
 - **post-root-package-install**: occurs after the root package has been
-  installed, during the `create-project` command.
+  installed during the `create-project` command (but before its
+  dependencies are installed).
 - **post-create-project-cmd**: occurs after the `create-project` command has
   been executed.
 
 ### Installer Events
 
-- **pre-dependencies-solving**: occurs before the dependencies are resolved.
-- **post-dependencies-solving**: occurs after the dependencies have been resolved.
+- **pre-operations-exec**: occurs before the install/upgrade/.. operations
+  are executed when installing a lock file. Plugins that need to hook into
+  this event will need to be installed globally to be usable, as otherwise
+  they would not be loaded yet when a fresh install of a project happens.
 
 ### Package Events
 
@@ -61,8 +65,15 @@ Composer fires the following named events during its execution process:
 - **command**: occurs before any Composer Command is executed on the CLI. It
   provides you with access to the input and output objects of the program.
 - **pre-file-download**: occurs before files are downloaded and allows
-  you to manipulate the `RemoteFilesystem` object prior to downloading files
+  you to manipulate the `HttpDownloader` object prior to downloading files
   based on the URL to be downloaded.
+- **post-file-download**: occurs after package dist files are downloaded and
+  allows you to perform additional checks on the file if required.
+- **pre-command-run**: occurs before a command is executed and allows you to
+  manipulate the `InputInterface` object's options and arguments to tweak
+  a command's behavior.
+- **pre-pool-create**: occurs before the Pool of packages is created, and lets
+  you filter the list of packages that is going to enter the Solver.
 
 > **Note:** Composer makes no assumptions about the state of your dependencies
 > prior to `install` or `update`. Therefore, you should not specify scripts
@@ -153,10 +164,11 @@ class MyClass
 }
 ```
 
-**Note:** During a composer install or update process, a variable named
+**Note:** During a Composer `install` or `update` command run, a variable named
 `COMPOSER_DEV_MODE` will be added to the environment. If the command was run
 with the `--no-dev` flag, this variable will be set to 0, otherwise it will be
-set to 1.
+set to 1. The variable is also available while `dump-autoload` runs, and it
+will be set to the same as the last `install` or `update` was run in.
 
 ## Event classes
 
@@ -168,25 +180,26 @@ Depending on the [script types](#event-names) you will get various event
 subclasses containing various getters with relevant data and associated
 objects:
 
-- Base class: [`Composer\EventDispatcher\Event`](https://getcomposer.org/apidoc/master/Composer/EventDispatcher/Event.html)
-- Command Events: [`Composer\Script\Event`](https://getcomposer.org/apidoc/master/Composer/Script/Event.html)
-- Installer Events: [`Composer\Installer\InstallerEvent`](https://getcomposer.org/apidoc/master/Composer/Installer/InstallerEvent.html)
-- Package Events: [`Composer\Installer\PackageEvent`](https://getcomposer.org/apidoc/master/Composer/Installer/PackageEvent.html)
+- Base class: [`Composer\EventDispatcher\Event`](https://github.com/composer/composer/blob/main/src/Composer/EventDispatcher/Event.php)
+- Command Events: [`Composer\Script\Event`](https://github.com/composer/composer/blob/main/src/Composer/Script/Event.php)
+- Installer Events: [`Composer\Installer\InstallerEvent`](https://github.com/composer/composer/blob/main/src/Composer/Installer/InstallerEvent.php)
+- Package Events: [`Composer\Installer\PackageEvent`](https://github.com/composer/composer/blob/main/src/Composer/Installer/PackageEvent.php)
 - Plugin Events:
-  - init: [`Composer\EventDispatcher\Event`](https://getcomposer.org/apidoc/master/Composer/EventDispatcher/Event.html)
-  - command: [`Composer\Plugin\CommandEvent`](https://getcomposer.org/apidoc/master/Composer/Plugin/CommandEvent.html)
-  - pre-file-download: [`Composer\Plugin\PreFileDownloadEvent`](https://getcomposer.org/apidoc/master/Composer/Plugin/PreFileDownloadEvent.html)
+  - init: [`Composer\EventDispatcher\Event`](https://github.com/composer/composer/blob/main/src/Composer/EventDispatcher/Event.php)
+  - command: [`Composer\Plugin\CommandEvent`](https://github.com/composer/composer/blob/main/src/Composer/Plugin/CommandEvent.php)
+  - pre-file-download: [`Composer\Plugin\PreFileDownloadEvent`](https://github.com/composer/composer/blob/main/src/Composer/Plugin/PreFileDownloadEvent.php)
+  - post-file-download: [`Composer\Plugin\PostFileDownloadEvent`](https://github.com/composer/composer/blob/main/src/Composer/Plugin/PostFileDownloadEvent.php)
 
 ## Running scripts manually
 
 If you would like to run the scripts for an event manually, the syntax is:
 
 ```sh
-composer run-script [--dev] [--no-dev] script
+php composer.phar run-script [--dev] [--no-dev] script
 ```
 
 For example `composer run-script post-install-cmd` will run any
-**post-install-cmd** scripts that have been defined.
+**post-install-cmd** scripts and [plugins](plugins.md) that have been defined.
 
 You can also give additional arguments to the script handler by appending `--`
 followed by the handler arguments. e.g.
@@ -199,7 +212,7 @@ and can be retrieved as an array via `$event->getArguments()` by PHP handlers.
 If you add custom scripts that do not fit one of the predefined event name
 above, you can either run them with run-script or also run them as native
 Composer commands. For example the handler defined below is executable by
-simply running `composer test`:
+running `composer test`:
 
 ```json
 {
@@ -215,8 +228,58 @@ to the `phpunit` script.
 
 > **Note:** Before executing scripts, Composer's bin-dir is temporarily pushed
 > on top of the PATH environment variable so that binaries of dependencies
-> are easily accessible. In this example no matter if the `phpunit` binary is
+> are directly accessible. In this example no matter if the `phpunit` binary is
 > actually in `vendor/bin/phpunit` or `bin/phpunit` it will be found and executed.
+
+Although Composer is not intended to manage long-running processes and other
+such aspects of PHP projects, it can sometimes be handy to disable the process
+timeout on custom commands. This timeout defaults to 300 seconds and can be
+overridden in a variety of ways depending on the desired effect:
+
+- disable it for all commands using the config key `process-timeout`,
+- disable it for the current or future invocations of composer using the
+  environment variable `COMPOSER_PROCESS_TIMEOUT`,
+- for a specific invocation using the `--timeout` flag of the `run-script` command,
+- using a static helper for specific scripts.
+
+To disable the timeout for specific scripts with the static helper directly in
+composer.json:
+
+```json
+{
+    "scripts": {
+        "test": [
+            "Composer\\Config::disableProcessTimeout",
+            "phpunit"
+        ]
+    }
+}
+```
+
+To disable the timeout for every script on a given project, you can use the
+composer.json configuration:
+
+```json
+{
+    "config": {
+        "process-timeout": 0
+    }
+}
+```
+
+It's also possible to set the global environment variable to disable the timeout
+of all following scripts in the current terminal environment:
+
+```
+export COMPOSER_PROCESS_TIMEOUT=0
+```
+
+To disable the timeout of a single script call, you must use the `run-script` composer
+command and specify the `--timeout` parameter:
+
+```
+php composer.phar run-script --timeout=0 test
+```
 
 ## Referencing scripts
 
@@ -232,6 +295,17 @@ one by prefixing the command name with `@`:
         ],
         "clearCache": "rm -rf cache/*"
     }
+}
+```
+
+You can also refer a script and pass it new arguments:
+
+```json
+{
+  "scripts": {
+    "tests": "phpunit",
+    "testsVerbose": "@tests -vvv"
+  }
 }
 ```
 
@@ -275,6 +349,24 @@ One limitation of this is that you can not call multiple commands in
 a row like `@php install && @php foo`. You must split them up in a
 JSON array of commands.
 
+You can also call a shell/bash script, which will have the path to
+the PHP executable available in it as a `PHP_BINARY` env var.
+
+## Setting environment variables
+
+To set an environment variable in a cross-platform way, you can use `@putenv`:
+
+```json
+{
+    "scripts": {
+        "install-phpstan": [
+            "@putenv COMPOSER=phpstan-composer.json",
+            "composer install --prefer-dist"
+        ]
+    }
+}
+```
+
 ## Custom descriptions.
 
 You can set custom script descriptions with the following in your `composer.json`:
@@ -286,5 +378,8 @@ You can set custom script descriptions with the following in your `composer.json
     }
 }
 ```
+
+The descriptions are used in `composer list` or `composer run -l` commands to
+describe what the scripts do when the command is run.
 
 > **Note:** You can only set custom descriptions of custom commands.

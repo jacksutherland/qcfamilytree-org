@@ -5,6 +5,7 @@ namespace craft\migrations;
 use Craft;
 use craft\db\Migration;
 use craft\db\Query;
+use craft\db\Table;
 use craft\helpers\Json;
 use craft\helpers\StringHelper;
 use craft\volumes\Local;
@@ -22,14 +23,14 @@ class m171231_055546_environment_variables_to_aliases extends Migration
         // Parse the site URLs
         $sites = (new Query())
             ->select(['id', 'baseUrl'])
-            ->from(['{{%sites}}'])
+            ->from([Table::SITES])
             ->where(['like', 'baseUrl', '{%', false])
             ->all();
 
         foreach ($sites as $site) {
             if ($this->_parseEnvString($site['baseUrl'])) {
-                $this->update('{{%sites}}', [
-                    'baseUrl' => $site['baseUrl']
+                $this->update(Table::SITES, [
+                    'baseUrl' => $site['baseUrl'],
                 ], ['id' => $site['id']], [], false);
             }
         }
@@ -37,7 +38,7 @@ class m171231_055546_environment_variables_to_aliases extends Migration
         // Parse the 'path' and 'url' local volume settings
         $localVolumes = (new Query())
             ->select(['id', 'settings'])
-            ->from(['{{%volumes}}'])
+            ->from([Table::VOLUMES])
             ->where(['type' => Local::class])
             ->all();
 
@@ -52,8 +53,8 @@ class m171231_055546_environment_variables_to_aliases extends Migration
             }
 
             if ($changed) {
-                $this->update('{{%volumes}}', [
-                    'settings' => Json::encode($settings)
+                $this->update(Table::VOLUMES, [
+                    'settings' => Json::encode($settings),
                 ], ['id' => $volume['id']], [], false);
             }
         }

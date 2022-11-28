@@ -12,6 +12,7 @@
 
 namespace Composer\Package\Archiver;
 
+use Composer\Pcre\Preg;
 use Composer\Util\Filesystem;
 use FilesystemIterator;
 use Symfony\Component\Finder\Finder;
@@ -35,21 +36,20 @@ class ArchivableFilesFinder extends \FilterIterator
     /**
      * Initializes the internal Symfony Finder with appropriate filters
      *
-     * @param string $sources       Path to source files to be archived
-     * @param array  $excludes      Composer's own exclude rules from composer.json
-     * @param bool   $ignoreFilters Ignore filters when looking for files
+     * @param string $sources Path to source files to be archived
+     * @param string[] $excludes Composer's own exclude rules from composer.json
+     * @param bool $ignoreFilters Ignore filters when looking for files
      */
     public function __construct($sources, array $excludes, $ignoreFilters = false)
     {
         $fs = new Filesystem();
 
-        $sources = $fs->normalizePath($sources);
+        $sources = $fs->normalizePath(realpath($sources));
 
         if ($ignoreFilters) {
             $filters = array();
         } else {
             $filters = array(
-                new HgExcludeFilter($sources),
                 new GitExcludeFilter($sources),
                 new ComposerExcludeFilter($sources, $excludes),
             );
@@ -58,11 +58,11 @@ class ArchivableFilesFinder extends \FilterIterator
         $this->finder = new Finder();
 
         $filter = function (\SplFileInfo $file) use ($sources, $filters, $fs) {
-            if ($file->isLink() && strpos($file->getLinkTarget(), $sources) !== 0) {
+            if ($file->isLink() && strpos($file->getRealPath(), $sources) !== 0) {
                 return false;
             }
 
-            $relativePath = preg_replace(
+            $relativePath = Preg::replace(
                 '#^'.preg_quote($sources, '#').'#',
                 '',
                 $fs->normalizePath($file->getRealPath())
@@ -84,11 +84,13 @@ class ArchivableFilesFinder extends \FilterIterator
             ->in($sources)
             ->filter($filter)
             ->ignoreVCS(true)
-            ->ignoreDotFiles(false);
+            ->ignoreDotFiles(false)
+            ->sortByName();
 
         parent::__construct($this->finder->getIterator());
     }
 
+    #[\ReturnTypeWillChange]
     public function accept()
     {
         /** @var SplFileInfo $current */

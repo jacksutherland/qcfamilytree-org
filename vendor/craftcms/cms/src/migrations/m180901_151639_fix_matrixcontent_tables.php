@@ -5,6 +5,7 @@ namespace craft\migrations;
 use Craft;
 use craft\db\Migration;
 use craft\db\Query;
+use craft\db\Table;
 use craft\fields\Matrix;
 use craft\helpers\Json;
 
@@ -20,7 +21,7 @@ class m180901_151639_fix_matrixcontent_tables extends Migration
     {
         $fields = (new Query())
             ->select(['id', 'handle', 'settings'])
-            ->from(['{{%fields}}'])
+            ->from([Table::FIELDS])
             ->where(['type' => Matrix::class])
             ->orderBy(['id' => SORT_ASC])
             ->all();
@@ -38,7 +39,7 @@ class m180901_151639_fix_matrixcontent_tables extends Migration
                 $field['settings']['contentTable'] = '{{%matrixcontent_' . $handle . '}}';
             }
             $fieldsByHandle[$handle][] = $field;
-            $this->update('{{%fields}}', [
+            $this->update(Table::FIELDS, [
                 'settings' => Json::encode($field['settings']),
             ], [
                 'id' => $field['id'],
@@ -96,8 +97,8 @@ class m180901_151639_fix_matrixcontent_tables extends Migration
                     }
 
                     $this->createIndex(null, $tableName, ['elementId', 'siteId'], true);
-                    $this->addForeignKey(null, $tableName, ['elementId'], '{{%elements}}', ['id'], 'CASCADE', null);
-                    $this->addForeignKey(null, $tableName, ['siteId'], '{{%sites}}', ['id'], 'CASCADE', 'CASCADE');
+                    $this->addForeignKey(null, $tableName, ['elementId'], Table::ELEMENTS, ['id'], 'CASCADE', null);
+                    $this->addForeignKey(null, $tableName, ['siteId'], Table::SITES, ['id'], 'CASCADE', 'CASCADE');
                     $this->_cleanUpTable($field['id'], $tableName, $originalFieldColumns);
                 }
 
@@ -108,6 +109,9 @@ class m180901_151639_fix_matrixcontent_tables extends Migration
             // Re-enable FK checks
             $this->execute($queryBuilder->checkIntegrity(true));
         }
+
+        // Force the fields service to refetch the fields.
+        Craft::$app->getFields()->refreshFields();
     }
 
     /**
@@ -125,16 +129,16 @@ class m180901_151639_fix_matrixcontent_tables extends Migration
         $this->delete($tableName, [
             'not in', 'elementId', (new Query())
                 ->select(['id'])
-                ->from(['{{%matrixblocks}}'])
-                ->where(['fieldId' => $fieldId])
+                ->from([Table::MATRIXBLOCKS])
+                ->where(['fieldId' => $fieldId]),
         ]);
 
         // get all of the columns this field needs
         $subFields = (new Query())
             ->select(['f.handle', 'mbt.handle as blockTypeHandle'])
-            ->from(['{{%fields}} f'])
-            ->innerJoin('{{%fieldlayoutfields}} flf', '[[flf.fieldId]] = [[f.id]]')
-            ->innerJoin('{{%matrixblocktypes}} mbt', '[[mbt.fieldLayoutId]] = [[flf.layoutId]]')
+            ->from(['f' => Table::FIELDS])
+            ->innerJoin(['flf' => Table::FIELDLAYOUTFIELDS], '[[flf.fieldId]] = [[f.id]]')
+            ->innerJoin(['mbt' => Table::MATRIXBLOCKTYPES], '[[mbt.fieldLayoutId]] = [[flf.layoutId]]')
             ->where(['mbt.fieldId' => $fieldId])
             ->all();
 

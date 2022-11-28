@@ -1,0 +1,8 @@
+handle: blog
+hasUrls: true
+name: Blog
+settings:
+  path: '@webroot/uploads/images/blog/'
+sortOrder: 5
+type: craft\volumes\Local
+url: /uploads/images/blog/

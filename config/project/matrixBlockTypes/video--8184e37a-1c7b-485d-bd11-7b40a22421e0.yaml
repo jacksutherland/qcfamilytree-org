@@ -1,0 +1,32 @@
+field: 53caff22-2ce8-4149-83e4-74b104ad4bb6
+fieldLayouts:
+  f3e50312-47fc-4bcd-9e6a-d5ab2ec17526:
+    tabs:
+      -
+        fields:
+          b0b39e63-4520-41e1-bd0c-899e7d39aea5:
+            required: true
+            sortOrder: 1
+        name: Content
+        sortOrder: 1
+fields:
+  b0b39e63-4520-41e1-bd0c-899e7d39aea5:
+    contentColumnType: text
+    fieldGroup: null
+    handle: embedCode
+    instructions: ''
+    name: 'Embed Code'
+    searchable: true
+    settings:
+      charLimit: ''
+      code: ''
+      columnType: text
+      initialRows: '2'
+      multiline: '1'
+      placeholder: ''
+    translationKeyFormat: null
+    translationMethod: none
+    type: craft\fields\PlainText
+handle: video
+name: Video
+sortOrder: 8

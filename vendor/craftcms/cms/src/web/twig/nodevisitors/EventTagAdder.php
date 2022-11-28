@@ -8,30 +8,36 @@
 namespace craft\web\twig\nodevisitors;
 
 use Craft;
+use craft\helpers\Html;
+use Twig\Environment;
+use Twig\Node\DoNode;
+use Twig\Node\Expression\FunctionExpression;
+use Twig\Node\Node;
+use Twig\Node\TextNode;
+use yii\base\InvalidArgumentException;
 
 /**
  * EventTagAdder adds missing `head()`, `beginBody()`, and `endBody()` event tags to templates as they’re being compiled.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class EventTagAdder extends BaseEventTagVisitor
 {
-    // Properties
-    // =========================================================================
+    /**
+     * @var string|null As much of the <body> tag as we’ve found so far
+     */
+    private $_bodyTag;
 
     /**
-     * @var bool Whether we're in the middle of finding the `beginBody()` tag
+     * @var int|null The end position of the last <body> tag we successfully parsed in $_bodyTag
      */
-    private $_findingBeginBody = false;
-
-    // Public Methods
-    // =========================================================================
+    private $_bodyAttrOffset;
 
     /**
      * @inheritdoc
      */
-    public function enterNode(\Twig_Node $node, \Twig_Environment $env)
+    public function enterNode(Node $node, Environment $env)
     {
         // Ignore if we're not rendering a page template
         if (!Craft::$app->getView()->getIsRenderingPageTemplate()) {
@@ -39,7 +45,7 @@ class EventTagAdder extends BaseEventTagVisitor
         }
 
         // If this is a text node and we're still adding event tags, process it
-        if ($node instanceof \Twig_Node_Text && !static::foundAllEventTags()) {
+        if ($node instanceof TextNode && !static::foundAllEventTags()) {
             $node = $this->_processTextNode($node, $env);
         }
 
@@ -49,7 +55,7 @@ class EventTagAdder extends BaseEventTagVisitor
     /**
      * @inheritdoc
      */
-    public function leaveNode(\Twig_Node $node, \Twig_Environment $env)
+    public function leaveNode(Node $node, Environment $env)
     {
         return $node;
     }
@@ -63,17 +69,14 @@ class EventTagAdder extends BaseEventTagVisitor
         return 1;
     }
 
-    // Private Methods
-    // =========================================================================
-
     /**
      * Processes a text node.
      *
-     * @param \Twig_Node_Text $node
-     * @param \Twig_Environment $env
-     * @return \Twig_Node
+     * @param TextNode $node
+     * @param Environment $env
+     * @return Node
      */
-    private function _processTextNode(\Twig_Node_Text $node, \Twig_Environment $env): \Twig_Node
+    private function _processTextNode(TextNode $node, Environment $env): Node
     {
         $data = $node->getAttribute('data');
 
@@ -81,36 +84,13 @@ class EventTagAdder extends BaseEventTagVisitor
         if (static::$foundHead === false && ($endHeadPos = stripos($data, '</head>')) !== false) {
             static::$foundHead = true;
 
-            return $this->_insertEventNode($node, $env, $endHeadPos, 'head');
+            return $this->_insertEventNode($node, $endHeadPos, 'head');
         }
 
         // Are we looking for `<body>`?
         if (static::$foundBeginBody === false) {
-            // We haven't found any part of `<body>` yet, right?
-            if ($this->_findingBeginBody === false) {
-                // Did we just find `<body(>)`?
-                if (preg_match('/(<body\b[^>]*)(>)?/', $data, $matches, PREG_OFFSET_CAPTURE) === 1) {
-                    // Did it include the `>`?
-                    if (!empty($matches[2][0])) {
-                        static::$foundBeginBody = true;
-                        $beginBodyPos = $matches[0][1] + strlen($matches[0][0]);
-
-                        return $this->_insertEventNode($node, $env, $beginBodyPos, 'beginBody');
-                    }
-
-// Will have to wait for the next text node
-                    $this->_findingBeginBody = true;
-                }
-            } else {
-                // Did we just find the `>`?
-                if (preg_match('/^[^>]*>/', $data, $matches)) {
-
-                    $this->_findingBeginBody = false;
-                    static::$foundBeginBody = true;
-                    $beginBodyPos = strlen($matches[0]);
-
-                    return $this->_insertEventNode($node, $env, $beginBodyPos, 'beginBody');
-                }
+            if (($newNode = $this->_findBeginBody($node)) !== null) {
+                return $newNode;
             }
         }
 
@@ -118,22 +98,69 @@ class EventTagAdder extends BaseEventTagVisitor
         if (static::$foundEndBody === false && ($endBodyPos = stripos($data, '</body>')) !== false) {
             static::$foundEndBody = true;
 
-            return $this->_insertEventNode($node, $env, $endBodyPos, 'endBody');
+            return $this->_insertEventNode($node, $endBodyPos, 'endBody');
         }
 
         return $node;
     }
 
     /**
+     * Searches the text node for the beginning of the `<body>` tag.
+     *
+     * @param TextNode $node
+     * @return Node|null
+     */
+    private function _findBeginBody(TextNode $node): ?Node
+    {
+        $data = $node->getAttribute('data');
+
+        // Does it start here?
+        if ($this->_bodyTag === null) {
+            if (!preg_match('/<body\b/i', $data, $matches, PREG_OFFSET_CAPTURE)) {
+                return null;
+            }
+
+            $offsetOffset = $matches[0][1];
+            $this->_bodyTag = substr($data, $matches[0][1]);
+            $this->_bodyAttrOffset = 5;
+        } else {
+            // Append this text node to $_bodyTag
+            $offsetOffset = -strlen($this->_bodyTag);
+            $this->_bodyTag .= $data;
+        }
+
+        do {
+            try {
+                $attribute = Html::parseTagAttribute($this->_bodyTag, $this->_bodyAttrOffset, $start, $end);
+            } catch (InvalidArgumentException $e) {
+                // The tag is probably split between a couple text nodes. Keep trying on the next text node
+                break;
+            }
+
+            // No more attributes?
+            if ($attribute === null) {
+                static::$foundBeginBody = true;
+                $beginBodyPos = $offsetOffset + strpos($this->_bodyTag, '>', $this->_bodyAttrOffset) + 1;
+                return $this->_insertEventNode($node, $beginBodyPos, 'beginBody');
+            }
+
+            // Try again where this one ended
+            $this->_bodyAttrOffset = $end;
+        } while (true);
+
+        return null;
+    }
+
+    /**
      * Inserts a new event function node at a specific point in a given text node’s data.
      *
-     * @param \Twig_Node_Text $node
-     * @param \Twig_Environment $env
+     * @param TextNode $node
+     * @param Environment $env
      * @param int $pos
      * @param string $functionName
-     * @return \Twig_Node
+     * @return Node
      */
-    private function _insertEventNode(\Twig_Node_Text $node, \Twig_Environment $env, int $pos, string $functionName): \Twig_Node
+    private function _insertEventNode(TextNode $node, int $pos, string $functionName): Node
     {
         $data = $node->getAttribute('data');
         $preSplitHtml = substr($data, 0, $pos);
@@ -141,10 +168,10 @@ class EventTagAdder extends BaseEventTagVisitor
         $startLine = $node->getTemplateLine();
         $splitLine = $startLine + substr_count($preSplitHtml, "\n");
 
-        return new \Twig_Node([
-            $this->_processTextNode(new \Twig_Node_Text($preSplitHtml, $startLine), $env),
-            new \Twig_Node_Do(new \Twig_Node_Expression_Function($functionName, new \Twig_Node(), $splitLine), $splitLine),
-            $this->_processTextNode(new \Twig_Node_Text($postSplitHtml, $splitLine), $env)
+        return new Node([
+            new TextNode($preSplitHtml, $startLine),
+            new DoNode(new FunctionExpression($functionName, new Node(), $splitLine), $splitLine),
+            new TextNode($postSplitHtml, $splitLine),
         ], [], $startLine);
     }
 }

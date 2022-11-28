@@ -1,8 +1,8 @@
 <?php
 /**
- * @link http://www.yiiframework.com/
+ * @link https://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
+ * @license https://www.yiiframework.com/license/
  */
 
 namespace yii\queue;
@@ -14,7 +14,7 @@ use yii\base\Event;
  *
  * @author Roman Zhuravlev <zhuravljov@gmail.com>
  */
-class JobEvent extends Event
+abstract class JobEvent extends Event
 {
     /**
      * @var Queue
@@ -26,7 +26,7 @@ class JobEvent extends Event
      */
     public $id;
     /**
-     * @var JobInterface
+     * @var JobInterface|null
      */
     public $job;
     /**

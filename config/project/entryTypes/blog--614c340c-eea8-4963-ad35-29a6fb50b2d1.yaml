@@ -1,0 +1,61 @@
+fieldLayouts:
+  795ddf0d-c1f1-4448-8d07-0c4a2c6e3b8d:
+    tabs:
+      -
+        elements:
+          -
+            instructions: null
+            label: Title
+            type: craft\fieldlayoutelements\EntryTitleField
+          -
+            fieldUid: 160141ae-e779-4662-b8c7-f02363f1c55d
+            required: true
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: 8d55cc8e-b956-4dcd-b4ca-dcc1a79250a0
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: 781c6289-28be-46d4-b6e9-9b02f9ea8956
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: 8b8fd5a6-1f98-49d2-b719-2885b1922e02
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: 92281620-f193-4639-9703-1f3a148692e5
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: c3bbe8b3-89e6-4466-a592-d8478141c65c # Blog Text
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: 143ac896-62d4-474a-ab2a-bb7870bd969d
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+        name: Blog
+        sortOrder: 1
+      -
+        elements:
+          -
+            fieldUid: 6290fb4a-532f-47d9-8c7b-d38c5baff567
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: fbe8468b-6038-4ceb-8c99-10c9c32fd884
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: d1e57679-2bcb-4952-b8b0-4a51006cc8f9
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+        name: SEO
+        sortOrder: 2
+handle: blog
+hasTitleField: true
+name: Blog
+section: 957e8546-4a46-44b6-ac7f-8fe37cea2673
+sortOrder: 1
+titleFormat: null

@@ -3,6 +3,14 @@
 {% set title = 'Modal Callback' %}
 
 {% js %}
-	window.opener.pluginStoreApp.updateCraftId({{ craftIdAccount|json_encode|raw }});
-	window.close();
+    Craft.sendApiRequest('GET', 'account', {
+        headers: {
+            'Authorization': "Bearer {{ craftIdAccessToken }}"
+        }
+    })
+    .then(function(responseData) {
+        window.opener.pluginStoreApp.updateCraftId(responseData, function() {
+            window.close();
+        });
+    })
 {% endjs %}

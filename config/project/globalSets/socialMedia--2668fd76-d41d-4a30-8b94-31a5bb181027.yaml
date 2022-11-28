@@ -1,0 +1,25 @@
+fieldLayouts:
+  f0ca2a0f-f9e6-4291-95f1-022356641f3d:
+    tabs:
+      -
+        fields:
+          1b3688fd-2fcb-4218-bf2e-6e70ff06f540:
+            required: false
+            sortOrder: 5
+          744e90e2-2c61-4e03-9f9e-a94488c44bfa:
+            required: false
+            sortOrder: 3
+          66930516-69a8-44e4-83bf-44a092f8b604:
+            required: false
+            sortOrder: 4
+          acfdf49e-258b-419c-a1eb-066cc06f6e28:
+            required: false
+            sortOrder: 2
+          f9af1c10-e265-4c99-b094-1dc833efec86:
+            required: false
+            sortOrder: 1
+        name: 'Social Media'
+        sortOrder: 1
+handle: socialMedia
+name: Social
+sortOrder: 1

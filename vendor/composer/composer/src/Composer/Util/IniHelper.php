@@ -12,6 +12,8 @@
 
 namespace Composer\Util;
 
+use Composer\XdebugHandler\XdebugHandler;
+
 /**
  * Provides ini file location functions that work with and without a restart.
  * When the process has restarted it uses a tmp ini and stores the original
@@ -21,31 +23,17 @@ namespace Composer\Util;
  */
 class IniHelper
 {
-    const ENV_ORIGINAL = 'COMPOSER_ORIGINAL_INIS';
-
     /**
      * Returns an array of php.ini locations with at least one entry
      *
      * The equivalent of calling php_ini_loaded_file then php_ini_scanned_files.
      * The loaded ini location is the first entry and may be empty.
      *
-     * @return array
+     * @return string[]
      */
     public static function getAll()
     {
-        $env = getenv(self::ENV_ORIGINAL);
-
-        if (false !== $env) {
-            return explode(PATH_SEPARATOR, $env);
-        }
-
-        $paths = array(strval(php_ini_loaded_file()));
-
-        if ($scanned = php_ini_scanned_files()) {
-            $paths = array_merge($paths, array_map('trim', explode(',', $scanned)));
-        }
-
-        return $paths;
+        return XdebugHandler::getAllIniFiles();
     }
 
     /**

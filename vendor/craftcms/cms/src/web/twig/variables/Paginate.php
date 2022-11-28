@@ -8,46 +8,95 @@
 namespace craft\web\twig\variables;
 
 use Craft;
+use craft\db\Paginator;
 use craft\helpers\UrlHelper;
+use yii\base\BaseObject;
 
 /**
  * Paginate variable class.
  *
+ * @property string $basePath
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
-class Paginate
+class Paginate extends BaseObject
 {
-    // Properties
-    // =========================================================================
+    /**
+     * Creates a new instance based on a Paginator object
+     *
+     * @param Paginator $paginator
+     * @return static
+     * @since 3.1.19
+     */
+    public static function create(Paginator $paginator): self
+    {
+        $pageResults = $paginator->getPageResults();
+        $pageOffset = $paginator->getPageOffset();
+
+        return new static([
+            'first' => $pageOffset + 1,
+            'last' => $pageOffset + count($pageResults),
+            'total' => $paginator->getTotalResults(),
+            'currentPage' => $paginator->getCurrentPage(),
+            'totalPages' => $paginator->getTotalPages(),
+        ]);
+    }
 
     /**
-     * @var
+     * @var int
      */
     public $first;
 
     /**
-     * @var
+     * @var int
      */
     public $last;
 
     /**
-     * @var
+     * @var int
      */
     public $total = 0;
 
     /**
-     * @var
+     * @var int
      */
     public $currentPage;
 
     /**
-     * @var
+     * @var int
      */
     public $totalPages = 0;
 
-    // Public Methods
-    // =========================================================================
+    /**
+     * @var string Base path
+     * @see getBasePath()
+     * @see setBasePath()
+     */
+    private $_basePath;
+
+    /**
+     * Returns the base path that should be used for pagination URLs.
+     *
+     * @return string
+     */
+    public function getBasePath(): string
+    {
+        if ($this->_basePath !== null) {
+            return $this->_basePath;
+        }
+        return $this->_basePath = Craft::$app->getRequest()->getPathInfo();
+    }
+
+    /**
+     * Sets the base path that should be used for pagination URLs.
+     *
+     * @param string $basePath
+     * @since 3.1.28
+     */
+    public function setBasePath(string $basePath)
+    {
+        $this->_basePath = $basePath;
+    }
 
     /**
      * Returns the URL to a specific page
@@ -57,41 +106,38 @@ class Paginate
      */
     public function getPageUrl(int $page)
     {
-        if ($page >= 1 && $page <= $this->totalPages) {
-            $path = Craft::$app->getRequest()->getPathInfo();
-            $params = [];
-
-            if ($page != 1) {
-                $pageTrigger = Craft::$app->getConfig()->getGeneral()->pageTrigger;
-
-                if (!is_string($pageTrigger) || $pageTrigger === '') {
-                    $pageTrigger = 'p';
-                }
-
-                // Is this query string-based pagination?
-                if ($pageTrigger[0] === '?') {
-                    $pageTrigger = trim($pageTrigger, '?=');
-
-                    // Avoid conflict with the path param
-                    $pathParam = Craft::$app->getConfig()->getGeneral()->pathParam;
-                    if ($pageTrigger === $pathParam) {
-                        $pageTrigger = $pathParam === 'p' ? 'pg' : 'p';
-                    }
-
-                    $params = [$pageTrigger => $page];
-                } else {
-                    if ($path) {
-                        $path .= '/';
-                    }
-
-                    $path .= $pageTrigger . $page;
-                }
-            }
-
-            return UrlHelper::url($path, $params);
+        if ($page < 1 || $page > $this->totalPages) {
+            return null;
         }
 
-        return null;
+        $pageTrigger = Craft::$app->getConfig()->getGeneral()->getPageTrigger();
+        $useQueryParam = strpos($pageTrigger, '?') === 0;
+
+        $path = $this->getBasePath();
+
+        // If not using a query param, append the page to the path
+        if (!$useQueryParam && $page != 1) {
+            if ($path) {
+                $path .= '/';
+            }
+
+            $path .= $pageTrigger . $page;
+        }
+
+        // Build the URL with the same query string as the current request
+        $url = UrlHelper::url($path, Craft::$app->getRequest()->getQueryStringWithoutPath());
+
+        // If using a query param, append or remove it
+        if ($useQueryParam) {
+            $param = trim($pageTrigger, '?=');
+            if ($page != 1) {
+                $url = UrlHelper::urlWithParams($url, [$param => $page]);
+            } else {
+                $url = UrlHelper::removeParam($url, $param);
+            }
+        }
+
+        return $url;
     }
 
     /**
@@ -173,7 +219,7 @@ class Paginate
      *
      * @param int $start
      * @param int $end
-     * @return array
+     * @return string[]
      */
     public function getRangeUrls(int $start, int $end): array
     {
@@ -192,5 +238,21 @@ class Paginate
         }
 
         return $urls;
+    }
+
+    /**
+     * Returns a dynamic range of page URLs that surround (and include) the current page.
+     *
+     * @param int $max The maximum number of links to return
+     * @return string[]
+     */
+    public function getDynamicRangeUrls($max = 10)
+    {
+        $start = max(1, $this->currentPage - floor($max / 2));
+        $end = min($this->totalPages, $start + $max - 1);
+        if ($end - $start < $max) {
+            $start = max(1, $end - $max + 1);
+        }
+        return $this->getRangeUrls($start, $end);
     }
 }

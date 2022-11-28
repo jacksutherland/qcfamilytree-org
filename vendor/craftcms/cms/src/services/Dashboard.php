@@ -8,18 +8,20 @@
 namespace craft\services;
 
 use Craft;
-use craft\base\Widget;
 use craft\base\WidgetInterface;
 use craft\db\Query;
+use craft\db\Table;
 use craft\errors\MissingComponentException;
 use craft\errors\WidgetNotFoundException;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\WidgetEvent;
 use craft\helpers\Component as ComponentHelper;
+use craft\helpers\Db;
 use craft\records\Widget as WidgetRecord;
 use craft\widgets\CraftSupport as CraftSupportWidget;
 use craft\widgets\Feed as FeedWidget;
 use craft\widgets\MissingWidget;
+use craft\widgets\MyDrafts;
 use craft\widgets\NewUsers as NewUsersWidget;
 use craft\widgets\QuickPost as QuickPostWidget;
 use craft\widgets\RecentEntries as RecentEntriesWidget;
@@ -29,22 +31,20 @@ use yii\base\Exception;
 
 /**
  * Dashboard service.
- * An instance of the Dashboard service is globally accessible in Craft via [[\craft\base\ApplicationTrait::getDashboard()|`Craft::$app->dashboard`]].
+ *
+ * An instance of the service is available via [[\craft\base\ApplicationTrait::getDashboard()|`Craft::$app->dashboard`]].
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Dashboard extends Component
 {
-    // Constants
-    // =========================================================================
-
     /**
      * @event RegisterComponentTypesEvent The event that is triggered when registering Dashboard widget types.
      *
      * Dashboard widgets must implement [[WidgetInterface]]. [[Widget]] provides a base implementation.
      *
-     * See [Widget Types](https://docs.craftcms.com/v3/widget-types.html) for documentation on creating Dashboard widgets.
+     * See [Widget Types](https://craftcms.com/docs/3.x/extend/widget-types.html) for documentation on creating Dashboard widgets.
      * ---
      * ```php
      * use craft\events\RegisterComponentTypesEvent;
@@ -81,9 +81,6 @@ class Dashboard extends Component
      */
     const EVENT_AFTER_DELETE_WIDGET = 'afterDeleteWidget';
 
-    // Public Methods
-    // =========================================================================
-
     /**
      * Returns all available widget type classes.
      *
@@ -97,11 +94,12 @@ class Dashboard extends Component
             NewUsersWidget::class,
             QuickPostWidget::class,
             RecentEntriesWidget::class,
+            MyDrafts::class,
             UpdatesWidget::class,
         ];
 
         $event = new RegisterComponentTypesEvent([
-            'types' => $widgetTypes
+            'types' => $widgetTypes,
         ]);
         $this->trigger(self::EVENT_REGISTER_WIDGET_TYPES, $event);
 
@@ -121,7 +119,6 @@ class Dashboard extends Component
         }
 
         try {
-            /** @var Widget $widget */
             $widget = ComponentHelper::createComponent($config, WidgetInterface::class);
         } catch (MissingComponentException $e) {
             $config['errorMessage'] = $e->getMessage();
@@ -194,7 +191,6 @@ class Dashboard extends Component
      */
     public function saveWidget(WidgetInterface $widget, bool $runValidation = true): bool
     {
-        /** @var Widget $widget */
         $isNewWidget = $widget->getIsNew();
 
         // Fire a 'beforeSaveWidget' event
@@ -224,7 +220,7 @@ class Dashboard extends Component
             if ($isNewWidget) {
                 // Set the sortOrder
                 $maxSortOrder = (new Query())
-                    ->from(['{{%widgets}}'])
+                    ->from([Table::WIDGETS])
                     ->where(['userId' => Craft::$app->getUser()->getIdentity()->id])
                     ->max('[[sortOrder]]');
 
@@ -257,7 +253,7 @@ class Dashboard extends Component
     }
 
     /**
-     * Soft-deletes a widget by its ID.
+     * Deletes a widget by its ID.
      *
      * @param int $widgetId The widget’s ID
      * @return bool Whether the widget was deleted successfully
@@ -274,7 +270,7 @@ class Dashboard extends Component
     }
 
     /**
-     * Soft-deletes a widget.
+     * Deletes a widget.
      *
      * @param WidgetInterface $widget The widget to be deleted
      * @return bool Whether the widget was deleted successfully
@@ -282,7 +278,6 @@ class Dashboard extends Component
      */
     public function deleteWidget(WidgetInterface $widget): bool
     {
-        /** @var Widget $widget */
         // Fire a 'beforeDeleteWidget' event
         if ($this->hasEventHandlers(self::EVENT_BEFORE_DELETE_WIDGET)) {
             $this->trigger(self::EVENT_BEFORE_DELETE_WIDGET, new WidgetEvent([
@@ -360,9 +355,6 @@ class Dashboard extends Component
         return true;
     }
 
-    // Private Methods
-    // =========================================================================
-
     /**
      * Adds the default widgets to the logged-in user.
      */
@@ -387,14 +379,16 @@ class Dashboard extends Component
         $this->saveWidget($this->createWidget([
             'type' => FeedWidget::class,
             'url' => 'https://craftcms.com/news.rss',
-            'title' => 'Craft News'
+            'title' => 'Craft News',
         ]));
 
         // Update the user record
         $user->hasDashboard = true;
-        Craft::$app->getDb()->createCommand()
-            ->update('{{%users}}', ['hasDashboard' => true], ['id' => $user->id])
-            ->execute();
+        Db::update(Table::USERS, [
+            'hasDashboard' => true,
+        ], [
+            'id' => $user->id,
+        ]);
     }
 
     /**
@@ -410,7 +404,7 @@ class Dashboard extends Component
         if ($widgetId !== null) {
             $widgetRecord = WidgetRecord::findOne([
                 'id' => $widgetId,
-                'userId' => $userId
+                'userId' => $userId,
             ]);
 
             if (!$widgetRecord) {
@@ -480,6 +474,6 @@ class Dashboard extends Component
                 'type',
                 'settings',
             ])
-            ->from(['{{%widgets}}']);
+            ->from([Table::WIDGETS]);
     }
 }

@@ -12,19 +12,15 @@ use craft\base\ElementAction;
 use craft\elements\db\ElementQuery;
 use craft\elements\db\ElementQueryInterface;
 use craft\elements\User;
-use craft\helpers\Json;
 
 /**
  * SuspendUsers represents a Suspend Users element action.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class SuspendUsers extends ElementAction
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -38,21 +34,20 @@ class SuspendUsers extends ElementAction
      */
     public function getTriggerHtml()
     {
-        $type = Json::encode(static::class);
-        $userId = Json::encode(Craft::$app->getUser()->getIdentity()->id);
-
-        $js = <<<EOD
-(function()
-{
-    var trigger = new Craft.ElementActionTrigger({
-        type: {$type},
+        Craft::$app->getView()->registerJsWithVars(function($type, $userId) {
+            return <<<JS
+(() => {
+    new Craft.ElementActionTrigger({
+        type: $type,
         batch: true,
-        validateSelection: function(\$selectedItems)
-        {
-            for (var i = 0; i < \$selectedItems.length; i++)
-            {
-                if (\$selectedItems.eq(i).find('.element').data('id') == {$userId})
-                {
+        validateSelection: \$selectedItems => {
+            for (let i = 0; i < \$selectedItems.length; i++) {
+                const \$element = \$selectedItems.eq(i).find('.element');
+                if (
+                    !Garnish.hasAttr(\$element, 'data-can-suspend') ||
+                    Garnish.hasAttr(\$element, 'data-suspended') ||
+                    \$element.data('id') == $userId
+                ) {
                     return false;
                 }
             }
@@ -61,16 +56,17 @@ class SuspendUsers extends ElementAction
         }
     });
 })();
-EOD;
+JS;
+        }, [
+            static::class,
+            Craft::$app->getUser()->getId(),
+        ]);
 
-        Craft::$app->getView()->registerJs($js);
+        return null;
     }
 
     /**
-     * Performs the action on any elements that match the given criteria.
-     *
-     * @param ElementQueryInterface $query The element query defining which elements the action should affect.
-     * @return bool Whether the action was performed successfully.
+     * @inheritdoc
      */
     public function performAction(ElementQueryInterface $query): bool
     {
@@ -78,21 +74,28 @@ EOD;
         // Get the users that aren't already suspended
         $query->status = [
             User::STATUS_ACTIVE,
-            User::STATUS_LOCKED,
             User::STATUS_PENDING,
         ];
 
         /** @var User[] $users */
         $users = $query->all();
+        $usersService = Craft::$app->getUsers();
+        $currentUser = Craft::$app->getUser()->getIdentity();
 
-        foreach ($users as $user) {
-            if (!$user->getIsCurrent()) {
-                Craft::$app->getUsers()->suspendUser($user);
+        $successCount = count(array_filter($users, function(User $user) use ($usersService, $currentUser) {
+            try {
+                return $usersService->canSuspend($currentUser, $user) && $usersService->suspendUser($user);
+            } catch (\Throwable $e) {
+                return false;
             }
+        }));
+
+        if ($successCount !== count($users)) {
+            $this->setMessage(Craft::t('app', 'Could not suspend all users.'));
+            return false;
         }
 
         $this->setMessage(Craft::t('app', 'Users suspended.'));
-
         return true;
     }
 }

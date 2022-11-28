@@ -7,7 +7,7 @@ use craft\services\Fields;
 use yii\base\Event;
 
 /**
- * CKEditor plugin.
+ * Redactor plugin.
  * @method static Plugin getInstance()
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
@@ -15,16 +15,10 @@ use yii\base\Event;
  */
 class Plugin extends \craft\base\Plugin
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public $schemaVersion = '2.0.0';
-
-    // Public Methods
-    // =========================================================================
+    public $schemaVersion = '2.3.0';
 
     /**
      * @inheritdoc
@@ -33,8 +27,12 @@ class Plugin extends \craft\base\Plugin
     {
         parent::init();
 
-        Event::on(Fields::class, Fields::EVENT_REGISTER_FIELD_TYPES, function(RegisterComponentTypesEvent $e) {
-            $e->types[] = Field::class;
-        });
+        Event::on(
+            Fields::class,
+            Fields::EVENT_REGISTER_FIELD_TYPES,
+            function(RegisterComponentTypesEvent $e) {
+                $e->types[] = Field::class;
+            }
+        );
     }
 }

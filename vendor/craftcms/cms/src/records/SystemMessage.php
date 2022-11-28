@@ -8,6 +8,7 @@
 namespace craft\records;
 
 use craft\db\ActiveRecord;
+use craft\db\Table;
 use craft\validators\LanguageValidator;
 
 /**
@@ -19,13 +20,10 @@ use craft\validators\LanguageValidator;
  * @property string $subject Subject
  * @property string $body Body
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class SystemMessage extends ActiveRecord
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -46,6 +44,6 @@ class SystemMessage extends ActiveRecord
      */
     public static function tableName(): string
     {
-        return '{{%systemmessages}}';
+        return Table::SYSTEMMESSAGES;
     }
 }

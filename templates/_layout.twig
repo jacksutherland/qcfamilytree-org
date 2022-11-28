@@ -16,7 +16,7 @@
         <meta name="robots" content="noindex, nofollow">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-        <link rel="canonical" href="{% if entry.canonicalUrl | length %}{{ entry.canonicalUrl }}{% else %}{{ craft.request.url }}{% endif %}" />
+        <link rel="canonical" href="{% if entry.canonicalUrl | length %}{{ entry.canonicalUrl }}{% else %}{{ craft.app.request.absoluteUrl }}{% endif %}" />
 
         {# SEO and Social Meta Data #}
 
@@ -39,16 +39,16 @@
 
             <meta property="og:title" content="{{ socialTitle }}">
             <meta property="og:description" content="{{ socialDesc }}">
-            <meta property="og:url" content="{{ craft.request.url }}">
+            <meta property="og:url" content="{{ craft.app.request.absoluteUrl }}">
             {% if entry.heroImage is defined and entry.heroImage.count %}
-                <meta property="og:image" content="{{ siteUrl | slice(0,-1) }}{{ entry.heroImage.first().url }}">
+                <meta property="og:image" content="{{ siteUrl | slice(0,-1) }}{{ entry.heroImage.one().url }}">
             {% endif %}
 
             <meta name="twitter:card" content="{% if blog is defined %}blog{% else %}summary{% endif %}" />
             <meta name="twitter:title" content="{{ socialTitle }}">
             <meta name="twitter:description" content="{{ socialDesc }}">
             {% if entry.heroImage is defined and entry.heroImage.count %}
-                <meta name="twitter:image" content="{{ siteUrl | slice(0,-1) }}{{ entry.heroImage.first().url }}">
+                <meta name="twitter:image" content="{{ siteUrl | slice(0,-1) }}{{ entry.heroImage.one().url }}">
             {% endif %}
         {% else %}
             <title>QC Family Tree</title>

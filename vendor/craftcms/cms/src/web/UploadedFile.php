@@ -8,18 +8,17 @@
 namespace craft\web;
 
 use Craft;
+use craft\helpers\FileHelper;
+use yii\base\InvalidConfigException;
 
 /**
  * UploadedFile represents the information for an uploaded file.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class UploadedFile extends \yii\web\UploadedFile
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * Returns an instance of the specified uploaded file. The name can be a plain string or a string like an array
      * element (e.g. 'Post[imageFile]', or 'Post[0][imageFile]').
@@ -70,12 +69,9 @@ class UploadedFile extends \yii\web\UploadedFile
         }
 
         if ($ensureTempFilesExist) {
-            array_filter($instances, function(UploadedFile $instance): bool {
+            $instances = array_values(array_filter($instances, function(UploadedFile $instance): bool {
                 return is_uploaded_file($instance->tempName);
-            });
-
-            // Reset the keys
-            $instances = array_values($instances);
+            }));
         }
 
         return $instances;
@@ -105,8 +101,40 @@ class UploadedFile extends \yii\web\UploadedFile
         return $tempPath;
     }
 
-    // Private Methods
-    // =========================================================================
+    /**
+     * Returns the MIME type of the file, based on [[\craft\helpers\FileHelper::getMimeType()]] rather than what the
+     * request told us.
+     *
+     * @param string|null $magicFile name of the optional magic database file (or alias).
+     * @param bool $checkExtension whether to use the file extension to determine the MIME type in case
+     * `finfo_open()` cannot determine it.
+     * @return string|null
+     * @throws InvalidConfigException when the `fileinfo` PHP extension is not installed and `$checkExtension` is `false`.
+     * @since 3.1.7
+     */
+    public function getMimeType(string $magicFile = null, bool $checkExtension = true)
+    {
+        $mimeType = null;
+
+        // Make sure it still exists in the temp location
+        if (is_uploaded_file($this->tempName)) {
+            // Don't check the extension yet (the temp name doesn't have one)
+            try {
+                $mimeType = FileHelper::getMimeType($this->tempName, $magicFile, false);
+            } catch (InvalidConfigException $e) {
+                if (!$checkExtension) {
+                    throw $e;
+                }
+            }
+        }
+
+        // Be forgiving of SVG files, etc., that don't have an XML declaration
+        if ($checkExtension && ($mimeType === null || !FileHelper::canTrustMimeType($mimeType))) {
+            return FileHelper::getMimeTypeByExtension($this->name, $magicFile) ?? $mimeType;
+        }
+
+        return $mimeType;
+    }
 
     /**
      * Swaps dot notation for the normal format.

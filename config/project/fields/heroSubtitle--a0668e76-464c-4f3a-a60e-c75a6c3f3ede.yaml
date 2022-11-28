@@ -1,0 +1,16 @@
+contentColumnType: text
+fieldGroup: 435b0ef2-0c42-40bf-9055-6769daac4110
+handle: heroSubtitle
+instructions: ''
+name: 'Hero Subtitle'
+searchable: true
+settings:
+  charLimit: ''
+  code: ''
+  columnType: text
+  initialRows: '4'
+  multiline: ''
+  placeholder: ''
+translationKeyFormat: null
+translationMethod: none
+type: craft\fields\PlainText

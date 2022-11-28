@@ -1,0 +1,16 @@
+contentColumnType: text
+fieldGroup: 8f34b7f7-ccaf-4579-9b50-ed681ffe57ac
+handle: blogAuthor
+instructions: ''
+name: 'Blog Author'
+searchable: true
+settings:
+  charLimit: ''
+  code: ''
+  columnType: text
+  initialRows: '4'
+  multiline: ''
+  placeholder: ''
+translationKeyFormat: null
+translationMethod: none
+type: craft\fields\PlainText

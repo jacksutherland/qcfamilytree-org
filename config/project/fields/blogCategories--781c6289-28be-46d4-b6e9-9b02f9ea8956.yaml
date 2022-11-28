@@ -1,0 +1,33 @@
+contentColumnType: string
+fieldGroup: 8f34b7f7-ccaf-4579-9b50-ed681ffe57ac
+handle: blogCategories
+instructions: ''
+name: 'Blog Categories'
+searchable: true
+settings:
+  options:
+    -
+      __assoc__:
+        -
+          - default
+          - ''
+        -
+          - label
+          - Podcast
+        -
+          - value
+          - podcast
+    -
+      __assoc__:
+        -
+          - default
+          - ''
+        -
+          - label
+          - 'Freedom Rides'
+        -
+          - value
+          - freedomRides
+translationKeyFormat: null
+translationMethod: none
+type: craft\fields\Checkboxes

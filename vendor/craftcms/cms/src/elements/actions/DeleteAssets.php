@@ -9,21 +9,18 @@ namespace craft\elements\actions;
 
 use Craft;
 use craft\base\ElementAction;
-use craft\elements\Asset;
 use craft\elements\db\ElementQueryInterface;
+use craft\helpers\Json;
 use yii\base\Exception;
 
 /**
  * DeleteAssets represents a Delete Assets element action.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class DeleteAssets extends ElementAction
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -49,25 +46,48 @@ class DeleteAssets extends ElementAction
     }
 
     /**
-     * Performs the action on any elements that match the given criteria.
-     *
-     * @param ElementQueryInterface $query The element query defining which elements the action should affect.
-     * @return bool Whether the action was performed successfully.
+     * @inheritdoc
+     * @since 3.5.15
+     */
+    public function getTriggerHtml()
+    {
+        // Only enable for deletable elements, per getIsDeletable()
+        $type = Json::encode(static::class);
+        $js = <<<JS
+(() => {
+    new Craft.ElementActionTrigger({
+        type: {$type},
+        validateSelection: function(\$selectedItems)
+        {
+            for (let i = 0; i < \$selectedItems.length; i++) {
+                if (!Garnish.hasAttr(\$selectedItems.eq(i).find('.element'), 'data-deletable')) {
+                    return false;
+                }
+            }
+            return true;
+        },
+    });
+})();
+JS;
+        Craft::$app->getView()->registerJs($js);
+        return null;
+    }
+
+    /**
+     * @inheritdoc
      */
     public function performAction(ElementQueryInterface $query): bool
     {
+        $elementsService = Craft::$app->getElements();
+
         try {
             foreach ($query->all() as $asset) {
-                /**
-                 * @var Asset $asset
-                 */
-                if (Craft::$app->getUser()->checkPermission('deleteFilesAndFoldersInVolume:' . $asset->volumeId)) {
-                    Craft::$app->getElements()->deleteElement($asset);
+                if ($asset->getIsDeletable()) {
+                    $elementsService->deleteElement($asset);
                 }
             }
         } catch (Exception $exception) {
             $this->setMessage($exception->getMessage());
-
             return false;
         }
 

@@ -45,60 +45,6 @@
                                 </div>
                             {% endif %}
                         {% endfor %}
-                        {# <div class="col-md-4">
-                            <ul>
-                                <li>
-                                    <a href="/">About</a>
-                                    <ul>
-                                        <li>
-                                            <a href="/">Lorem ipsum</a>
-                                        </li>
-                                        <li>
-                                            <a href="/">Exercitation</a>
-                                        </li>
-                                        <li>
-                                            <a href="/">Quis autem vel eum</a>
-                                        </li>
-                                    </ul>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="col-md-4">
-                            <ul>
-                                <li>
-                                    <a href="/">Podcast</a>
-                                    <ul>
-                                        <li>
-                                            <a href="/">At vero eos</a>
-                                        </li>
-                                        <li>
-                                            <a href="/">Maxime</a>
-                                        </li>
-                                        <li>
-                                            <a href="/">Nam libero tempore</a>
-                                        </li>
-                                        <li>
-                                            <a href="/">Itaque earum</a>
-                                        </li>
-                                    </ul>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="col-md-4">
-                            <ul>
-                                <li>
-                                    <a href="/">Get Involved</a>
-                                    <ul>
-                                        <li>
-                                            <a href="/">Itaque vel</a>
-                                        </li>
-                                        <li>
-                                            <a href="/">Asperiores</a>
-                                        </li>
-                                    </ul>
-                                </li>
-                            </ul>
-                        </div> #}
                     </div>
                 </nav>
             </div>
@@ -108,7 +54,7 @@
         <div class="container">
             <div class="row">
                 <div class="col-5 text-md-center">
-                    <div>Copyright © {{ now.year }} QC Family Tree</div>
+                    <div>Copyright © {{ now | date('Y') }} QC Family Tree</div>
                     <a href="http://jacksutherland.com" target="_blank">Site by Jack</a>
                 </div>
                 <div class="col-7 text-right">

@@ -24,15 +24,15 @@
 {% if isNewGroup %}
     {% set title = "Create a new user group"|t('app') %}
 {% else %}
-    {% set title = group.name %}
+    {% set title = group.name|trim ?: 'Edit User Group'|t('app') %}
 {% endif %}
 
 
 {% block content %}
-    <input type="hidden" name="action" value="user-settings/save-group">
-    {{ redirectInput('settings/users') }}
+    {{ actionInput('user-settings/save-group') }}
+    {{ redirectInput('settings/users/groups/{id}') }}
 
-    {% if not isNewGroup %}<input type="hidden" name="groupId" value="{{ group.id }}">{% endif %}
+    {% if not isNewGroup %}{{ hiddenInput('groupId', group.id) }}{% endif %}
 
     {{ forms.textField({
         first: true,
@@ -50,9 +50,20 @@
         id: 'handle',
         name: 'handle',
         class: 'code',
+        autocorrect: false,
+        autocapitalize: false,
         value: (group is defined ? group.handle : null),
         errors: (group is defined ? group.getErrors('handle') : null),
         required: true
+    }) }}
+
+    {{ forms.textareaField({
+        label: 'Description'|t('app'),
+        id: 'description',
+        class: 'nicetext',
+        name: 'description',
+        value: group.description ?? null,
+        errors: (group is defined ? group.getErrors('description') : null),
     }) }}
 
     <hr>

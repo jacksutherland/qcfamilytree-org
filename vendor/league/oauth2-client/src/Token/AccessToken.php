@@ -15,7 +15,6 @@
 namespace League\OAuth2\Client\Token;
 
 use InvalidArgumentException;
-use JsonSerializable;
 use RuntimeException;
 
 /**
@@ -23,7 +22,7 @@ use RuntimeException;
  *
  * @link http://tools.ietf.org/html/rfc6749#section-1.4 Access Token (RFC 6749, §1.4)
  */
-class AccessToken implements JsonSerializable
+class AccessToken implements AccessTokenInterface, ResourceOwnerAccessTokenInterface
 {
     /**
      * @var string
@@ -49,6 +48,40 @@ class AccessToken implements JsonSerializable
      * @var array
      */
     protected $values = [];
+
+    /**
+     * @var int
+     */
+    private static $timeNow;
+
+    /**
+     * Set the time now. This should only be used for testing purposes.
+     *
+     * @param int $timeNow the time in seconds since epoch
+     * @return void
+     */
+    public static function setTimeNow($timeNow)
+    {
+        self::$timeNow = $timeNow;
+    }
+
+    /**
+     * Reset the time now if it was set for test purposes.
+     *
+     * @return void
+     */
+    public static function resetTimeNow()
+    {
+        self::$timeNow = null;
+    }
+
+    /**
+     * @return int
+     */
+    public function getTimeNow()
+    {
+        return self::$timeNow ? self::$timeNow : time();
+    }
 
     /**
      * Constructs an access token.
@@ -81,14 +114,14 @@ class AccessToken implements JsonSerializable
                 throw new \InvalidArgumentException('expires_in value must be an integer');
             }
 
-            $this->expires = $options['expires_in'] != 0 ? time() + $options['expires_in'] : 0;
+            $this->expires = $options['expires_in'] != 0 ? $this->getTimeNow() + $options['expires_in'] : 0;
         } elseif (!empty($options['expires'])) {
             // Some providers supply the seconds until expiration rather than
             // the exact timestamp. Take a best guess at which we received.
             $expires = $options['expires'];
 
             if (!$this->isExpirationTimestamp($expires)) {
-                $expires += time();
+                $expires += $this->getTimeNow();
             }
 
             $this->expires = $expires;
@@ -121,9 +154,7 @@ class AccessToken implements JsonSerializable
     }
 
     /**
-     * Returns the access token string of this instance.
-     *
-     * @return string
+     * @inheritdoc
      */
     public function getToken()
     {
@@ -131,9 +162,7 @@ class AccessToken implements JsonSerializable
     }
 
     /**
-     * Returns the refresh token, if defined.
-     *
-     * @return string|null
+     * @inheritdoc
      */
     public function getRefreshToken()
     {
@@ -141,9 +170,7 @@ class AccessToken implements JsonSerializable
     }
 
     /**
-     * Returns the expiration timestamp, if defined.
-     *
-     * @return integer|null
+     * @inheritdoc
      */
     public function getExpires()
     {
@@ -151,9 +178,7 @@ class AccessToken implements JsonSerializable
     }
 
     /**
-     * Returns the resource owner identifier, if defined.
-     *
-     * @return string|null
+     * @inheritdoc
      */
     public function getResourceOwnerId()
     {
@@ -161,10 +186,7 @@ class AccessToken implements JsonSerializable
     }
 
     /**
-     * Checks if this token has expired.
-     *
-     * @return boolean true if the token has expired, false otherwise.
-     * @throws RuntimeException if 'expires' is not set on the token.
+     * @inheritdoc
      */
     public function hasExpired()
     {
@@ -178,9 +200,7 @@ class AccessToken implements JsonSerializable
     }
 
     /**
-     * Returns additional vendor values stored in the token.
-     *
-     * @return array
+     * @inheritdoc
      */
     public function getValues()
     {
@@ -188,9 +208,7 @@ class AccessToken implements JsonSerializable
     }
 
     /**
-     * Returns the token key.
-     *
-     * @return string
+     * @inheritdoc
      */
     public function __toString()
     {
@@ -198,10 +216,7 @@ class AccessToken implements JsonSerializable
     }
 
     /**
-     * Returns an array of parameters to serialize when this is serialized with
-     * json_encode().
-     *
-     * @return array
+     * @inheritdoc
      */
     public function jsonSerialize()
     {

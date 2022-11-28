@@ -1,4 +1,4 @@
-{% set selectedCat = craft.request.getParam('category') %}
+{% set selectedCat = craft.app.request.getParam('category') %}
 {% if selectedCat == '' %}
 	{% set blogs = craft.entries.section('blog') %}
 {% else %}

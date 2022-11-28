@@ -19,24 +19,28 @@ class UpdaterAsset extends AssetBundle
     /**
      * @inheritdoc
      */
-    public function init()
-    {
-        $this->sourcePath = __DIR__ . '/dist';
+    public $sourcePath = __DIR__ . '/dist';
 
-        $this->depends = [
-            CpAsset::class,
-        ];
+    /**
+     * @inheritdoc
+     */
+    public $depends = [
+        CpAsset::class,
+    ];
 
-        $this->css = [
-            'update.css',
-        ];
+    /**
+     * @inheritdoc
+     */
+    public $css = [
+        'css/Updater.css',
+    ];
 
-        $this->js = [
-            'Updater' . $this->dotJs(),
-        ];
-
-        parent::init();
-    }
+    /**
+     * @inheritdoc
+     */
+    public $js = [
+        'Updater.js',
+    ];
 
     /**
      * @inheritdoc
@@ -51,6 +55,7 @@ class UpdaterAsset extends AssetBundle
                 'Status:',
                 'Response:',
                 'Send for help',
+                'Troubleshoot',
             ]);
         }
     }

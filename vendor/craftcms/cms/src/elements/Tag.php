@@ -9,31 +9,55 @@ namespace craft\elements;
 
 use Craft;
 use craft\base\Element;
+use craft\db\Table;
 use craft\elements\db\ElementQueryInterface;
 use craft\elements\db\TagQuery;
+use craft\helpers\Db;
 use craft\models\TagGroup;
 use craft\records\Tag as TagRecord;
 use yii\base\Exception;
 use yii\base\InvalidConfigException;
+use yii\validators\InlineValidator;
 
 /**
  * Tag represents a tag element.
  *
  * @property TagGroup $group the tag's group
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Tag extends Element
 {
-    // Static
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
     public static function displayName(): string
     {
         return Craft::t('app', 'Tag');
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public static function lowerDisplayName(): string
+    {
+        return Craft::t('app', 'tag');
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public static function pluralDisplayName(): string
+    {
+        return Craft::t('app', 'Tags');
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public static function pluralLowerDisplayName(): string
+    {
+        return Craft::t('app', 'tags');
     }
 
     /**
@@ -94,25 +118,55 @@ class Tag extends Element
 
         foreach (Craft::$app->getTags()->getAllTagGroups() as $tagGroup) {
             $sources[] = [
-                'key' => 'taggroup:' . $tagGroup->id,
+                'key' => 'taggroup:' . $tagGroup->uid,
                 'label' => Craft::t('site', $tagGroup->name),
-                'criteria' => ['groupId' => $tagGroup->id]
+                'criteria' => ['groupId' => $tagGroup->id],
             ];
         }
 
         return $sources;
     }
 
-    // Properties
-    // =========================================================================
+    /**
+     * @inheritdoc
+     * @since 3.3.0
+     */
+    public static function gqlTypeNameByContext($context): string
+    {
+        /** @var TagGroup $context */
+        return $context->handle . '_Tag';
+    }
+
+    /**
+     * @inheritdoc
+     * @since 3.3.0
+     */
+    public static function gqlScopesByContext($context): array
+    {
+        /** @var TagGroup $context */
+        return ['taggroups.' . $context->uid];
+    }
+
+    /**
+     * @inheritdoc
+     * @since 3.5.0
+     */
+    public static function gqlMutationNameByContext($context): string
+    {
+        /** @var TagGroup $context */
+        return 'save_' . $context->handle . '_Tag';
+    }
 
     /**
      * @var int|null Group ID
      */
     public $groupId;
 
-    // Public Methods
-    // =========================================================================
+    /**
+     * @var bool Whether the tag was deleted along with its group
+     * @see beforeDelete()
+     */
+    public $deletedWithGroup = false;
 
     /**
      * @inheritdoc
@@ -127,18 +181,60 @@ class Tag extends Element
     /**
      * @inheritdoc
      */
-    public function rules()
+    protected function defineRules(): array
     {
-        $rules = parent::rules();
+        $rules = parent::defineRules();
         $rules[] = [['groupId'], 'number', 'integerOnly' => true];
-
+        $rules[] = [
+            ['title'],
+            'validateTitle',
+            'when' => function(): bool {
+                return !$this->hasErrors('groupId') && !$this->hasErrors('title');
+            },
+            'on' => [self::SCENARIO_DEFAULT, self::SCENARIO_LIVE],
+        ];
         return $rules;
+    }
+
+    /**
+     * Validates the tag title.
+     *
+     * @param string $attribute
+     * @param array|null $params
+     * @param InlineValidator $validator
+     * @since 3.4.12
+     */
+    public function validateTitle(string $attribute, ?array $params, InlineValidator $validator)
+    {
+        $query = static::find()
+            ->groupId($this->groupId)
+            ->siteId($this->siteId)
+            ->title(Db::escapeParam($this->title));
+
+        if ($this->id) {
+            $query->andWhere(['not', ['elements.id' => $this->id]]);
+        }
+
+        if ($query->exists()) {
+            $validator->addError($this, $attribute, Craft::t('yii', '{attribute} "{value}" has already been taken.'));
+        }
+    }
+
+    /**
+     * @inheritdoc
+     * @since 3.5.0
+     */
+    public function getCacheTags(): array
+    {
+        return [
+            "group:$this->groupId",
+        ];
     }
 
     /**
      * @inheritdoc
      */
-    public function getIsEditable(): bool
+    protected function isEditable(): bool
     {
         return true;
     }
@@ -170,31 +266,13 @@ class Tag extends Element
         return $group;
     }
 
-    // Indexes, etc.
-    // -------------------------------------------------------------------------
-
     /**
      * @inheritdoc
+     * @since 3.3.0
      */
-    public function getEditorHtml(): string
+    public function getGqlTypeName(): string
     {
-        $html = Craft::$app->getView()->renderTemplateMacro('_includes/forms', 'textField', [
-            [
-                'label' => Craft::t('app', 'Title'),
-                'siteId' => $this->siteId,
-                'id' => 'title',
-                'name' => 'title',
-                'value' => $this->title,
-                'errors' => $this->getErrors('title'),
-                'first' => true,
-                'autofocus' => true,
-                'required' => true
-            ]
-        ]);
-
-        $html .= parent::getEditorHtml();
-
-        return $html;
+        return static::gqlTypeNameByContext($this->getGroup());
     }
 
     // Events
@@ -206,21 +284,42 @@ class Tag extends Element
      */
     public function afterSave(bool $isNew)
     {
-        // Get the tag record
-        if (!$isNew) {
-            $record = TagRecord::findOne($this->id);
+        if (!$this->propagating) {
+            // Get the tag record
+            if (!$isNew) {
+                $record = TagRecord::findOne($this->id);
 
-            if (!$record) {
-                throw new Exception('Invalid tag ID: ' . $this->id);
+                if (!$record) {
+                    throw new Exception('Invalid tag ID: ' . $this->id);
+                }
+            } else {
+                $record = new TagRecord();
+                $record->id = (int)$this->id;
             }
-        } else {
-            $record = new TagRecord();
-            $record->id = $this->id;
+
+            $record->groupId = (int)$this->groupId;
+            $record->save(false);
         }
 
-        $record->groupId = $this->groupId;
-        $record->save(false);
-
         parent::afterSave($isNew);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function beforeDelete(): bool
+    {
+        if (!parent::beforeDelete()) {
+            return false;
+        }
+
+        // Update the tag record
+        Db::update(Table::TAGS, [
+            'deletedWithGroup' => $this->deletedWithGroup,
+        ], [
+            'id' => $this->id,
+        ], [], false);
+
+        return true;
     }
 }

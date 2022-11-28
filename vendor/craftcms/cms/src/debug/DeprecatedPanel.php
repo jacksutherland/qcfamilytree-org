@@ -13,36 +13,30 @@ use yii\helpers\ArrayHelper;
 use yii\web\NotFoundHttpException;
 
 /**
- * Debugger panel that collects and displays deprecation error logs.
+ * Debugger panel that collects and displays deprecation warnings.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class DeprecatedPanel extends Panel
 {
-    // Public Methods
-    // =========================================================================
-
-    /**
-     *
-     */
+    /** @inheritdoc */
     public function getName()
     {
         return 'Deprecated';
     }
 
-    /**
-     *
-     */
+    /** @inheritdoc */
     public function getSummary()
     {
         return Craft::$app->getView()->render('@app/views/debug/deprecated/summary', [
-            'panel' => $this
+            'panel' => $this,
         ]);
     }
 
     /**
-     * @throws NotFoundHttpException if a `trace` parameter is in the query string, but its value isn’t a valid deprecation error log’s ID
+     * @inheritdoc
+     * @throws NotFoundHttpException if a `trace` parameter is in the query string, but its value isn’t a valid deprecation warning’s ID
      */
     public function getDetail()
     {
@@ -58,17 +52,17 @@ class DeprecatedPanel extends Panel
             $log = Craft::$app->getDeprecator()->getLogById($logId);
 
             if ($log === null) {
-                throw new NotFoundHttpException('The requested deprecation error log could not be found.');
+                throw new NotFoundHttpException('The requested deprecation warning could not be found.');
             }
 
             return Craft::$app->getView()->render('@app/views/debug/deprecated/traces', [
                 'panel' => $this,
-                'log' => $log
+                'log' => $log,
             ]);
         }
 
         return Craft::$app->getView()->render('@app/views/debug/deprecated/detail', [
-            'panel' => $this
+            'panel' => $this,
         ]);
     }
 

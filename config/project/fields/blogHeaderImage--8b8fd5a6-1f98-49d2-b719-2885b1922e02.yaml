@@ -1,0 +1,26 @@
+contentColumnType: string
+fieldGroup: 8f34b7f7-ccaf-4579-9b50-ed681ffe57ac
+handle: blogHeaderImage
+instructions: ''
+name: 'Blog Header Image'
+searchable: true
+settings:
+  allowedKinds:
+    - image
+  defaultUploadLocationSource: 'volume:6e805dce-ceea-4a2b-8a6c-ad92990c2fa7'
+  defaultUploadLocationSubpath: ''
+  limit: '1'
+  localizeRelations: false
+  restrictFiles: '1'
+  selectionLabel: ''
+  singleUploadLocationSource: 'volume:6e805dce-ceea-4a2b-8a6c-ad92990c2fa7'
+  singleUploadLocationSubpath: ''
+  source: null
+  sources:
+    - 'volume:6e805dce-ceea-4a2b-8a6c-ad92990c2fa7'
+  targetSiteId: null
+  useSingleFolder: '1'
+  viewMode: list
+translationKeyFormat: null
+translationMethod: site
+type: craft\fields\Assets

@@ -1,8 +1,8 @@
 <?php
 /**
- * @link http://www.yiiframework.com/
+ * @link https://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
+ * @license https://www.yiiframework.com/license/
  */
 
 namespace yii\queue\db;
@@ -236,18 +236,20 @@ class Queue extends CliQueue
     /**
      * Moves expired messages into waiting list.
      */
-    private function moveExpired()
+    protected function moveExpired()
     {
         if ($this->reserveTime !== time()) {
             $this->reserveTime = time();
             $this->db->createCommand()->update(
                 $this->tableName,
                 ['reserved_at' => null],
-                '[[reserved_at]] < :time - [[ttr]] and [[reserved_at]] is not null and [[done_at]] is null',
+                // `reserved_at IS NOT NULL` forces db to use index on column,
+                // otherwise a full scan of the table will be performed
+                '[[reserved_at]] is not null and [[reserved_at]] < :time - [[ttr]] and [[done_at]] is null',
                 [':time' => $this->reserveTime]
             )->execute();
         }
     }
 
-    private $reserveTime;
+    protected $reserveTime;
 }

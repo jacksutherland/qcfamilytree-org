@@ -1,0 +1,8 @@
+handle: pdfs
+hasUrls: false
+name: PDFs
+settings:
+  path: /pdfs
+sortOrder: 6
+type: craft\volumes\Local
+url: null

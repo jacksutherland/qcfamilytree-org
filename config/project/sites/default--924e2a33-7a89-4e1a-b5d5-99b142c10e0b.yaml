@@ -1,0 +1,8 @@
+baseUrl: '@web/'
+handle: default
+hasUrls: true
+language: en-US
+name: 'QC Family Tree'
+primary: true
+siteGroup: 62005acc-3859-4702-9877-32d4c6427e08
+sortOrder: 1

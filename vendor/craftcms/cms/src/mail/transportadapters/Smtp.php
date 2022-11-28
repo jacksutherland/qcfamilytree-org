@@ -8,20 +8,17 @@
 namespace craft\mail\transportadapters;
 
 use Craft;
-use craft\helpers\StringHelper;
-use yii\base\Exception;
+use craft\behaviors\EnvAttributeParserBehavior;
+use craft\helpers\App;
 
 /**
  * Smtp implements a SMTP transport adapter into Craft’s mailer.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Smtp extends BaseTransportAdapter
 {
-    // Static
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -29,9 +26,6 @@ class Smtp extends BaseTransportAdapter
     {
         return 'SMTP';
     }
-
-    // Properties
-    // =========================================================================
 
     /**
      * @var string|null The host that should be used
@@ -44,7 +38,7 @@ class Smtp extends BaseTransportAdapter
     public $port;
 
     /**
-     * @var bool|null Whether to use authentication
+     * @var bool|string|null Whether to use authentication
      */
     public $useAuthentication;
 
@@ -68,25 +62,24 @@ class Smtp extends BaseTransportAdapter
      */
     public $timeout = 10;
 
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function init()
+    public function behaviors()
     {
-        parent::init();
-
-        if ($this->password) {
-            try {
-                $this->password = StringHelper::decdec($this->password);
-            } catch (Exception $e) {
-                Craft::error('Could not decode SMTP password: ' . $e->getMessage());
-                Craft::$app->getErrorHandler()->logException($e);
-                $this->password = null;
-            }
-        }
+        $behaviors = parent::behaviors();
+        $behaviors['parser'] = [
+            'class' => EnvAttributeParserBehavior::class,
+            'attributes' => [
+                'host',
+                'port',
+                'useAuthentication',
+                'username',
+                'password',
+                'encryptionMethod',
+            ],
+        ];
+        return $behaviors;
     }
 
     /**
@@ -95,7 +88,7 @@ class Smtp extends BaseTransportAdapter
     public function attributeLabels()
     {
         return [
-            'host' => Craft::t('app', 'Host Name'),
+            'host' => Craft::t('app', 'Hostname'),
             'port' => Craft::t('app', 'Port'),
             'useAuthentication' => Craft::t('app', 'Use authentication'),
             'username' => Craft::t('app', 'Username'),
@@ -108,21 +101,22 @@ class Smtp extends BaseTransportAdapter
     /**
      * @inheritdoc
      */
-    public function rules()
+    protected function defineRules(): array
     {
-        return [
-            [['host', 'port', 'timeout'], 'required'],
-            [
-                ['username', 'password'],
-                'required',
-                'when' => function($model) {
-                    /** @var self $model */
-                    return (bool)$model->useAuthentication;
-                }
-            ],
-            [['encryptionMethod'], 'in', 'range' => ['tls', 'ssl']],
-            [['timeout'], 'number', 'integerOnly' => true],
+        $rules = parent::defineRules();
+        $rules[] = [['host'], 'trim'];
+        $rules[] = [['host', 'port', 'timeout'], 'required'];
+        $rules[] = [
+            ['username', 'password'],
+            'required',
+            'when' => function($model) {
+                /** @var self $model */
+                return App::parseBooleanEnv($model->useAuthentication) ?? false;
+            },
         ];
+        $rules[] = [['encryptionMethod'], 'in', 'range' => ['none', 'tls', 'ssl']];
+        $rules[] = [['timeout'], 'number', 'integerOnly' => true];
+        return $rules;
     }
 
     /**
@@ -131,7 +125,7 @@ class Smtp extends BaseTransportAdapter
     public function getSettingsHtml()
     {
         return Craft::$app->getView()->renderTemplate('_components/mailertransportadapters/Smtp/settings', [
-            'adapter' => $this
+            'adapter' => $this,
         ]);
     }
 
@@ -142,18 +136,21 @@ class Smtp extends BaseTransportAdapter
     {
         $config = [
             'class' => \Swift_SmtpTransport::class,
-            'host' => $this->host,
-            'port' => $this->port,
+            'host' => App::parseEnv($this->host),
+            'port' => App::parseEnv($this->port),
             'timeout' => $this->timeout,
         ];
 
-        if ($this->useAuthentication) {
-            $config['username'] = $this->username;
-            $config['password'] = $this->password;
+        if (App::parseBooleanEnv($this->useAuthentication) ?? false) {
+            $config['username'] = App::parseEnv($this->username);
+            $config['password'] = App::parseEnv($this->password);
         }
 
         if ($this->encryptionMethod) {
-            $config['encryption'] = $this->encryptionMethod;
+            $encryptionMethod = App::parseEnv($this->encryptionMethod);
+            if ($encryptionMethod && $encryptionMethod !== 'none') {
+                $config['encryption'] = $encryptionMethod;
+            }
         }
 
         return $config;

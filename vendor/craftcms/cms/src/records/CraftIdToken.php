@@ -8,6 +8,7 @@
 namespace craft\records;
 
 use craft\db\ActiveRecord;
+use craft\db\Table;
 use yii\db\ActiveQueryInterface;
 
 /**
@@ -18,20 +19,17 @@ use yii\db\ActiveQueryInterface;
  * @property string $accessToken Access Token
  * @property \DateTime $expiryDate Expiration Date
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class CraftIdToken extends ActiveRecord
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      * @return string
      */
     public static function tableName(): string
     {
-        return '{{%craftidtokens}}';
+        return Table::CRAFTIDTOKENS;
     }
 
     /**

@@ -16,31 +16,36 @@ use Composer\Factory;
 use Composer\IO\IOInterface;
 use Composer\Config;
 use Composer\Downloader\TransportException;
+use Composer\Pcre\Preg;
 
 /**
  * @author Jordi Boggiano <j.boggiano@seld.be>
  */
 class GitHub
 {
+    /** @var IOInterface */
     protected $io;
+    /** @var Config */
     protected $config;
+    /** @var ProcessExecutor */
     protected $process;
-    protected $remoteFilesystem;
+    /** @var HttpDownloader */
+    protected $httpDownloader;
 
     /**
      * Constructor.
      *
-     * @param IOInterface      $io               The IO instance
-     * @param Config           $config           The composer configuration
-     * @param ProcessExecutor  $process          Process instance, injectable for mocking
-     * @param RemoteFilesystem $remoteFilesystem Remote Filesystem, injectable for mocking
+     * @param IOInterface     $io             The IO instance
+     * @param Config          $config         The composer configuration
+     * @param ProcessExecutor $process        Process instance, injectable for mocking
+     * @param HttpDownloader  $httpDownloader Remote Filesystem, injectable for mocking
      */
-    public function __construct(IOInterface $io, Config $config, ProcessExecutor $process = null, RemoteFilesystem $remoteFilesystem = null)
+    public function __construct(IOInterface $io, Config $config, ProcessExecutor $process = null, HttpDownloader $httpDownloader = null)
     {
         $this->io = $io;
         $this->config = $config;
-        $this->process = $process ?: new ProcessExecutor;
-        $this->remoteFilesystem = $remoteFilesystem ?: Factory::createRemoteFilesystem($this->io, $config);
+        $this->process = $process ?: new ProcessExecutor($io);
+        $this->httpDownloader = $httpDownloader ?: Factory::createHttpDownloader($this->io, $config);
     }
 
     /**
@@ -86,9 +91,15 @@ class GitHub
         }
         $note .= ' ' . date('Y-m-d Hi');
 
+        $url = 'https://'.$originUrl.'/settings/tokens/new?scopes=&description=' . str_replace('%20', '+', rawurlencode($note));
+        $this->io->writeError(sprintf('When working with _public_ GitHub repositories only, head to %s to retrieve a token.', $url));
+        $this->io->writeError('This token will have read-only permission for public information only.');
+
         $url = 'https://'.$originUrl.'/settings/tokens/new?scopes=repo&description=' . str_replace('%20', '+', rawurlencode($note));
-        $this->io->writeError(sprintf('Head to %s', $url));
-        $this->io->writeError(sprintf('to retrieve a token. It will be stored in "%s" for future use by Composer.', $this->config->getAuthConfigSource()->getName()));
+        $this->io->writeError(sprintf('When you need to access _private_ GitHub repositories as well, go to %s', $url));
+        $this->io->writeError('Note that such tokens have broad read/write permissions on your behalf, even if not needed by Composer.');
+        $this->io->writeError(sprintf('Tokens will be stored in plain text in "%s" for future use by Composer.', $this->config->getAuthConfigSource()->getName()));
+        $this->io->writeError('For additional information, check https://getcomposer.org/doc/articles/authentication-for-private-packages.md#github-oauth');
 
         $token = trim($this->io->askAndHideAnswer('Token (hidden): '));
 
@@ -104,7 +115,7 @@ class GitHub
         try {
             $apiUrl = ('github.com' === $originUrl) ? 'api.github.com/' : $originUrl . '/api/v3/';
 
-            $this->remoteFilesystem->getContents($originUrl, 'https://'. $apiUrl, false, array(
+            $this->httpDownloader->get('https://'. $apiUrl, array(
                 'retry-auth-failure' => false,
             ));
         } catch (TransportException $e) {
@@ -125,5 +136,98 @@ class GitHub
         $this->io->writeError('<info>Token stored successfully.</info>');
 
         return true;
+    }
+
+    /**
+     * Extract rate limit from response.
+     *
+     * @param string[] $headers Headers from Composer\Downloader\TransportException.
+     *
+     * @return array{limit: int|'?', reset: string}
+     */
+    public function getRateLimit(array $headers)
+    {
+        $rateLimit = array(
+            'limit' => '?',
+            'reset' => '?',
+        );
+
+        foreach ($headers as $header) {
+            $header = trim($header);
+            if (false === strpos($header, 'X-RateLimit-')) {
+                continue;
+            }
+            list($type, $value) = explode(':', $header, 2);
+            switch ($type) {
+                case 'X-RateLimit-Limit':
+                    $rateLimit['limit'] = (int) trim($value);
+                    break;
+                case 'X-RateLimit-Reset':
+                    $rateLimit['reset'] = date('Y-m-d H:i:s', (int) trim($value));
+                    break;
+            }
+        }
+
+        return $rateLimit;
+    }
+
+    /**
+     * Extract SSO URL from response.
+     *
+     * @param string[] $headers Headers from Composer\Downloader\TransportException.
+     *
+     * @return string|null
+     */
+    public function getSsoUrl(array $headers)
+    {
+        foreach ($headers as $header) {
+            $header = trim($header);
+            if (false === stripos($header, 'x-github-sso: required')) {
+                continue;
+            }
+            if (Preg::isMatch('{\burl=(?P<url>[^\s;]+)}', $header, $match)) {
+                return $match['url'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Finds whether a request failed due to rate limiting
+     *
+     * @param string[] $headers Headers from Composer\Downloader\TransportException.
+     *
+     * @return bool
+     */
+    public function isRateLimited(array $headers)
+    {
+        foreach ($headers as $header) {
+            if (Preg::isMatch('{^X-RateLimit-Remaining: *0$}i', trim($header))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Finds whether a request failed due to lacking SSO authorization
+     *
+     * @see https://docs.github.com/en/rest/overview/other-authentication-methods#authenticating-for-saml-sso
+     *
+     * @param string[] $headers Headers from Composer\Downloader\TransportException.
+     *
+     * @return bool
+     */
+    public function requiresSso(array $headers)
+    {
+        foreach ($headers as $header) {
+            if (Preg::isMatch('{^X-GitHub-SSO: required}i', trim($header))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

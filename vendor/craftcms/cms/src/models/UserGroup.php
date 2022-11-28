@@ -13,19 +13,14 @@ use craft\records\UserGroup as UserGroupRecord;
 use craft\validators\HandleValidator;
 use craft\validators\UniqueValidator;
 
-Craft::$app->requireEdition(Craft::Pro);
-
 /**
  * UserGroup model class.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class UserGroup extends Model
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var int|null ID
      */
@@ -41,21 +36,53 @@ class UserGroup extends Model
      */
     public $handle;
 
-    // Public Methods
-    // =========================================================================
+    /**
+     * @var string|null Description
+     * @since 3.5.0
+     */
+    public $description;
+
+    /**
+     * @var string|null UID
+     */
+    public $uid;
 
     /**
      * @inheritdoc
      */
-    public function rules()
+    public function attributeLabels()
     {
         return [
-            [['id'], 'number', 'integerOnly' => true],
-            [['name', 'handle'], 'required'],
-            [['name', 'handle'], 'string', 'max' => 255],
-            [['handle'], HandleValidator::class, 'reservedWords' => ['id', 'dateCreated', 'dateUpdated', 'uid', 'title']],
-            [['name', 'handle'], UniqueValidator::class, 'targetClass' => UserGroupRecord::class],
+            'handle' => Craft::t('app', 'Handle'),
+            'name' => Craft::t('app', 'Name'),
         ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    protected function defineRules(): array
+    {
+        $rules = parent::defineRules();
+        $rules[] = [['id'], 'number', 'integerOnly' => true];
+        $rules[] = [['name', 'handle'], 'required'];
+        $rules[] = [['name', 'handle'], 'string', 'max' => 255];
+        $rules[] = [
+            ['handle'],
+            HandleValidator::class,
+            'reservedWords' => [
+                'admins',
+                'all',
+                'dateCreated',
+                'dateUpdated',
+                'id',
+                'new',
+                'title',
+                'uid',
+            ],
+        ];
+        $rules[] = [['name', 'handle'], UniqueValidator::class, 'targetClass' => UserGroupRecord::class];
+        return $rules;
     }
 
     /**
@@ -65,7 +92,7 @@ class UserGroup extends Model
      */
     public function __toString(): string
     {
-        return Craft::t('site', $this->name);
+        return Craft::t('site', $this->name) ?: static::class;
     }
 
     /**
@@ -81,5 +108,29 @@ class UserGroup extends Model
         }
 
         return false;
+    }
+
+    /**
+     * Returns the user group’s config.
+     *
+     * @param bool $withPermissions Whether permissions should be included
+     * @return array
+     * @since 3.5.0
+     */
+    public function getConfig(bool $withPermissions = true): array
+    {
+        $config = [
+            'name' => $this->name,
+            'handle' => $this->handle,
+            'description' => $this->description,
+        ];
+
+        if ($withPermissions && $this->id) {
+            $permissions = Craft::$app->getUserPermissions()->getPermissionsByGroupId($this->id);
+            sort($permissions);
+            $config['permissions'] = $permissions;
+        }
+
+        return $config;
     }
 }

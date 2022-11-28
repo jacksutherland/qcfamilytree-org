@@ -4,6 +4,7 @@ namespace craft\migrations;
 
 use craft\db\Migration;
 use craft\db\Query;
+use craft\db\Table;
 use craft\fields\PlainText;
 use craft\helpers\ArrayHelper;
 use craft\helpers\Db;
@@ -22,7 +23,7 @@ class m170223_224012_plain_text_settings extends Migration
     {
         $fields = (new Query())
             ->select(['id', 'settings'])
-            ->from(['{{%fields}}'])
+            ->from([Table::FIELDS])
             ->where(['type' => PlainText::class])
             ->all($this->db);
 
@@ -45,8 +46,8 @@ class m170223_224012_plain_text_settings extends Migration
                 $settings['columnType'] = Schema::TYPE_TEXT;
             }
 
-            $this->update('{{%fields}}', [
-                'settings' => Json::encode($settings)
+            $this->update(Table::FIELDS, [
+                'settings' => Json::encode($settings),
             ], ['id' => $field['id']]);
         }
     }

@@ -1,0 +1,37 @@
+dateModified: 1669670100
+email:
+  fromEmail: jacksutherl@gmail.com
+  fromName: 'QC Family Tree'
+  transportType: craft\mail\transportadapters\Sendmail
+graphql:
+  publicToken:
+    enabled: false
+    expiryDate: null
+meta:
+  __names__:
+    2668fd76-d41d-4a30-8b94-31a5bb181027: Social # Social
+    c3bbe8b3-89e6-4466-a592-d8478141c65c: 'Blog Text' # Blog Text
+    f9ad1539-d926-48ac-a5ed-49d281d531ed: 'Rich Text' # Rich Text
+plugins:
+  redactor:
+    enabled: '1'
+    licenseKey: null
+    schemaVersion: 2.3.0
+    settings: null
+  sitemap:
+    enabled: '1'
+    licenseKey: null
+    schemaVersion: 1.0.2
+    settings: null
+system:
+  edition: solo
+  live: true
+  name: 'QC Family Tree'
+  schemaVersion: 3.7.33
+  timeZone: America/New_York
+users:
+  allowPublicRegistration: false
+  defaultGroup: null
+  photoSubpath: null
+  photoVolumeUid: null
+  requireEmailVerification: true

@@ -1,0 +1,8 @@
+handle: heroImages
+hasUrls: true
+name: 'Hero Images'
+settings:
+  path: '@webroot/uploads/images/hero/'
+sortOrder: 3
+type: craft\volumes\Local
+url: /uploads/images/hero/

@@ -17,20 +17,19 @@ use yii\web\Response;
  * Note that all actions in the controller require an authenticated Craft session via [[allowAnonymous]].
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class RoutesController extends Controller
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function init()
+    public function beforeAction($action)
     {
         // All route actions require an admin
         $this->requireAdmin();
+
+        return parent::beforeAction($action);
     }
 
     /**
@@ -43,25 +42,21 @@ class RoutesController extends Controller
         $this->requirePostRequest();
         $this->requireAcceptsJson();
 
-        $uriParts = Craft::$app->getRequest()->getRequiredBodyParam('uriParts');
-        $template = Craft::$app->getRequest()->getRequiredBodyParam('template');
-        $siteId = Craft::$app->getRequest()->getBodyParam('siteId');
-        $routeId = Craft::$app->getRequest()->getBodyParam('routeId');
+        $uriParts = $this->request->getRequiredBodyParam('uriParts');
+        $template = $this->request->getRequiredBodyParam('template');
+        $siteUid = $this->request->getBodyParam('siteUid');
+        $routeUid = $this->request->getBodyParam('routeUid');
 
-        if ($siteId === '') {
-            $siteId = null;
+        if ($siteUid === '') {
+            $siteUid = null;
         }
 
-        $routeRecord = Craft::$app->getRoutes()->saveRoute($uriParts, $template, $siteId, $routeId);
-
-        if ($routeRecord->hasErrors()) {
-            return $this->asJson(['errors' => $routeRecord->getErrors()]);
-        }
+        $routeUid = Craft::$app->getRoutes()->saveRoute($uriParts, $template, $siteUid, $routeUid);
 
         return $this->asJson([
             'success' => true,
-            'routeId' => $routeRecord->id,
-            'siteId' => $routeRecord->siteId
+            'routeUid' => $routeUid,
+            'siteUid' => $siteUid,
         ]);
     }
 
@@ -74,8 +69,8 @@ class RoutesController extends Controller
     {
         $this->requirePostRequest();
 
-        $routeId = Craft::$app->getRequest()->getRequiredBodyParam('routeId');
-        Craft::$app->getRoutes()->deleteRouteById($routeId);
+        $routeUid = $this->request->getRequiredBodyParam('routeUid');
+        Craft::$app->getRoutes()->deleteRouteByUid($routeUid);
 
         return $this->asJson(['success' => true]);
     }
@@ -90,8 +85,8 @@ class RoutesController extends Controller
         $this->requirePostRequest();
         $this->requireAcceptsJson();
 
-        $routeIds = Craft::$app->getRequest()->getRequiredBodyParam('routeIds');
-        Craft::$app->getRoutes()->updateRouteOrder($routeIds);
+        $routeUids = $this->request->getRequiredBodyParam('routeUids');
+        Craft::$app->getRoutes()->updateRouteOrder($routeUids);
 
         return $this->asJson(['success' => true]);
     }

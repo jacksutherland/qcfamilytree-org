@@ -8,6 +8,7 @@
 namespace craft\records;
 
 use craft\db\ActiveRecord;
+use craft\db\Table;
 use yii\db\ActiveQueryInterface;
 
 /**
@@ -18,27 +19,28 @@ use yii\db\ActiveQueryInterface;
  * @property string $name Name
  * @property string $handle Handle
  * @property string $context Context
+ * @property string|null $columnSuffix
  * @property string $instructions Instructions
+ * @property bool $searchable Searchable
  * @property string $translationMethod Translation method
  * @property string $translationKeyFormat Translation key format
  * @property string $type Type
  * @property array $settings Settings
  * @property FieldGroup $group Group
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Field extends ActiveRecord
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var string|null
      */
     private $_oldHandle;
 
-    // Public Methods
-    // =========================================================================
+    /**
+     * @var string|null
+     */
+    private $_oldColumnSuffix;
 
     /**
      * Initializes the application component.
@@ -48,15 +50,16 @@ class Field extends ActiveRecord
         parent::init();
 
         // Store the old handle in case it's ever requested.
-        $this->on(self::EVENT_AFTER_FIND, [$this, 'storeOldHandle']);
+        $this->on(self::EVENT_AFTER_FIND, [$this, 'storeOldData']);
     }
 
     /**
      * Store the old handle.
      */
-    public function storeOldHandle()
+    public function storeOldData()
     {
         $this->_oldHandle = $this->handle;
+        $this->_oldColumnSuffix = $this->columnSuffix;
     }
 
     /**
@@ -70,12 +73,23 @@ class Field extends ActiveRecord
     }
 
     /**
+     * Returns the old column suffix.
+     *
+     * @return string|null
+     * @since 3.7.0
+     */
+    public function getOldColumnSuffix(): ?string
+    {
+        return $this->_oldColumnSuffix;
+    }
+
+    /**
      * @inheritdoc
      * @return string
      */
     public static function tableName(): string
     {
-        return '{{%fields}}';
+        return Table::FIELDS;
     }
 
     /**

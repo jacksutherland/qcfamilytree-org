@@ -40,14 +40,19 @@ class Event extends BaseEvent
     private $devMode;
 
     /**
+     * @var BaseEvent
+     */
+    private $originatingEvent;
+
+    /**
      * Constructor.
      *
-     * @param string      $name     The event name
-     * @param Composer    $composer The composer object
-     * @param IOInterface $io       The IOInterface object
-     * @param bool        $devMode  Whether or not we are in dev mode
-     * @param array       $args     Arguments passed by the user
-     * @param array       $flags    Optional flags to pass data not as argument
+     * @param string $name The event name
+     * @param Composer $composer The composer object
+     * @param IOInterface $io The IOInterface object
+     * @param bool $devMode Whether or not we are in dev mode
+     * @param array<string|int|float|bool|null> $args Arguments passed by the user
+     * @param mixed[] $flags Optional flags to pass data not as argument
      */
     public function __construct($name, Composer $composer, IOInterface $io, $devMode = false, array $args = array(), array $flags = array())
     {
@@ -85,5 +90,43 @@ class Event extends BaseEvent
     public function isDevMode()
     {
         return $this->devMode;
+    }
+
+    /**
+     * Set the originating event.
+     *
+     * @return ?BaseEvent
+     */
+    public function getOriginatingEvent()
+    {
+        return $this->originatingEvent;
+    }
+
+    /**
+     * Set the originating event.
+     *
+     * @param  BaseEvent $event
+     * @return $this
+     */
+    public function setOriginatingEvent(BaseEvent $event)
+    {
+        $this->originatingEvent = $this->calculateOriginatingEvent($event);
+
+        return $this;
+    }
+
+    /**
+     * Returns the upper-most event in chain.
+     *
+     * @param  BaseEvent $event
+     * @return BaseEvent
+     */
+    private function calculateOriginatingEvent(BaseEvent $event)
+    {
+        if ($event instanceof Event && $event->getOriginatingEvent()) {
+            return $this->calculateOriginatingEvent($event->getOriginatingEvent());
+        }
+
+        return $event;
     }
 }

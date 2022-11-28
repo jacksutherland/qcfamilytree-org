@@ -18,12 +18,9 @@ use craft\mail\Mailer;
 use craft\mail\transportadapters\BaseTransportAdapter;
 use craft\mail\transportadapters\Sendmail;
 use craft\mail\transportadapters\TransportAdapterInterface;
-use craft\models\Info;
 use craft\models\MailSettings;
 use craft\web\assets\generalsettings\GeneralSettingsAsset;
 use craft\web\Controller;
-use craft\web\twig\TemplateLoaderException;
-use DateTime;
 use yii\base\Exception;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -34,76 +31,32 @@ use yii\web\Response;
  * Note that all actions in this controller require administrator access in order to execute.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class SystemSettingsController extends Controller
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function init()
+    public function beforeAction($action)
     {
         // All system setting actions require an admin
         $this->requireAdmin();
+
+        return parent::beforeAction($action);
     }
 
     /**
      * Shows the general settings form.
      *
-     * @param Info|null $info The info being edited, if there were any validation errors.
      * @return Response
      */
-    public function actionGeneralSettings(Info $info = null): Response
+    public function actionGeneralSettings(): Response
     {
-        if ($info === null) {
-            $info = Craft::$app->getInfo();
-        }
-
-        // Assemble the timezone options array (Technique adapted from http://stackoverflow.com/a/7022536/1688568)
-        $timezoneOptions = [];
-
-        $utc = new DateTime();
-        $offsets = [];
-        $timezoneIds = [];
-
-        foreach (\DateTimeZone::listIdentifiers() as $timezoneId) {
-            $timezone = new \DateTimeZone($timezoneId);
-            $transition = $timezone->getTransitions($utc->getTimestamp(), $utc->getTimestamp());
-            $abbr = $transition[0]['abbr'];
-
-            $offset = round($timezone->getOffset($utc) / 60);
-
-            if ($offset) {
-                $hour = floor($offset / 60);
-                $minutes = floor(abs($offset) % 60);
-
-                $format = sprintf('%+d', $hour);
-
-                if ($minutes) {
-                    $format .= ':' . sprintf('%02u', $minutes);
-                }
-            } else {
-                $format = '';
-            }
-
-            $offsets[] = $offset;
-            $timezoneIds[] = $timezoneId;
-            $timezoneOptions[] = [
-                'value' => $timezoneId,
-                'label' => 'UTC' . $format . ($abbr !== 'UTC' ? " ({$abbr})" : '') . ($timezoneId !== 'UTC' ? ' – ' . $timezoneId : '')
-            ];
-        }
-
-        array_multisort($offsets, $timezoneIds, $timezoneOptions);
-
         $this->getView()->registerAssetBundle(GeneralSettingsAsset::class);
 
         return $this->renderTemplate('settings/general/_index', [
-            'info' => $info,
-            'timezoneOptions' => $timezoneOptions
+            'system' => Craft::$app->getProjectConfig()->get('system') ?? [],
         ]);
     }
 
@@ -116,25 +69,20 @@ class SystemSettingsController extends Controller
     {
         $this->requirePostRequest();
 
-        $info = Craft::$app->getInfo();
+        $projectConfig = Craft::$app->getProjectConfig();
+        $systemSettings = $projectConfig->get('system');
+        $systemSettings['name'] = $this->request->getBodyParam('name');
+        $systemSettings['live'] = $this->request->getBodyParam('live');
+        $systemSettings['retryDuration'] = (int)$this->request->getBodyParam('retryDuration') ?: null;
+        $systemSettings['timeZone'] = $this->request->getBodyParam('timeZone');
 
-        $info->name = Craft::$app->getRequest()->getBodyParam('name');
-        $info->on = (bool)Craft::$app->getRequest()->getBodyParam('on');
-        $info->timezone = Craft::$app->getRequest()->getBodyParam('timezone');
-
-        if (!Craft::$app->saveInfo($info)) {
-            Craft::$app->getSession()->setError(Craft::t('app', 'Couldn’t save general settings.'));
-
-            // Send the info back to the template
-            Craft::$app->getUrlManager()->setRouteParams([
-                'info' => $info
-            ]);
-
-            return null;
+        if (strpos($systemSettings['live'], '$') !== 0) {
+            $systemSettings['live'] = (bool)$systemSettings['live'];
         }
 
-        Craft::$app->getSession()->setNotice(Craft::t('app', 'General settings saved.'));
+        $projectConfig->set('system', $systemSettings, 'Update system settings.');
 
+        $this->setSuccessFlash(Craft::t('app', 'General settings saved.'));
         return $this->redirectToPostedUrl();
     }
 
@@ -149,7 +97,7 @@ class SystemSettingsController extends Controller
     public function actionEditEmailSettings(MailSettings $settings = null, TransportAdapterInterface $adapter = null): Response
     {
         if ($settings === null) {
-            $settings = Craft::$app->getSystemSettings()->getEmailSettings();
+            $settings = App::mailSettings();
         }
 
         if ($adapter === null) {
@@ -158,7 +106,7 @@ class SystemSettingsController extends Controller
             } catch (MissingComponentException $e) {
                 $adapter = new Sendmail();
                 $adapter->addError('type', Craft::t('app', 'The transport type “{type}” could not be found.', [
-                    'type' => $settings->transportType
+                    'type' => $settings->transportType,
                 ]));
             }
         }
@@ -180,7 +128,7 @@ class SystemSettingsController extends Controller
                 $allTransportAdapters[] = MailerHelper::createTransportAdapter($transportAdapterType);
                 $transportTypeOptions[] = [
                     'value' => $transportAdapterType,
-                    'label' => $transportAdapterType::displayName()
+                    'label' => $transportAdapterType::displayName(),
                 ];
             }
         }
@@ -217,27 +165,27 @@ class SystemSettingsController extends Controller
         $this->requirePostRequest();
 
         $settings = $this->_createMailSettingsFromPost();
-        $settingsIsValid = $settings->validate();
+        $settingsAreValid = $settings->validate();
 
         /** @var BaseTransportAdapter $adapter */
         $adapter = MailerHelper::createTransportAdapter($settings->transportType, $settings->transportSettings);
         $adapterIsValid = $adapter->validate();
 
-        if (!$settingsIsValid || !$adapterIsValid) {
-            Craft::$app->getSession()->setError(Craft::t('app', 'Couldn’t save email settings.'));
+        if (!$settingsAreValid || !$adapterIsValid) {
+            $this->setFailFlash(Craft::t('app', 'Couldn’t save email settings.'));
 
             // Send the settings back to the template
             Craft::$app->getUrlManager()->setRouteParams([
                 'settings' => $settings,
-                'adapter' => $adapter
+                'adapter' => $adapter,
             ]);
 
             return null;
         }
 
-        Craft::$app->getSystemSettings()->saveSettings('email', $settings->toArray());
-        Craft::$app->getSession()->setNotice(Craft::t('app', 'Email settings saved.'));
+        Craft::$app->getProjectConfig()->set('email', $settings->toArray(), 'Update email settings.');
 
+        $this->setSuccessFlash(Craft::t('app', 'Email settings saved.'));
         return $this->redirectToPostedUrl();
     }
 
@@ -256,58 +204,28 @@ class SystemSettingsController extends Controller
         $adapterIsValid = $adapter->validate();
 
         if ($settingsIsValid && $adapterIsValid) {
+            // Try to send the test email
             /** @var Mailer $mailer */
             $mailer = Craft::createObject(App::mailerConfig($settings));
-
-            // Compose the settings list as HTML
-            $settingsList = '';
-
-            foreach (['fromEmail', 'fromName', 'template'] as $name) {
-                if (!empty($settings->$name)) {
-                    $settingsList .= '- **' . $settings->getAttributeLabel($name) . ':** ' . $settings->$name . "\n";
-                }
-            }
-
-            $settingsList .= '- **' . Craft::t('app', 'Transport Type') . ':** ' . $adapter::displayName() . "\n";
-
-            $security = Craft::$app->getSecurity();
-
-            foreach ($adapter->settingsAttributes() as $name) {
-                if (!empty($adapter->$name)) {
-                    $label = $adapter->getAttributeLabel($name);
-                    $value = $security->redactIfSensitive($name, $adapter->$name);
-                    $settingsList .= "- **{$label}:** {$value}\n";
-                }
-            }
-
-            // Try to send the test email
             $message = $mailer
-                ->composeFromKey('test_email', ['settings' => $settingsList])
+                ->composeFromKey('test_email', [
+                    'settings' => MailerHelper::settingsReport($mailer, $adapter),
+                ])
                 ->setTo(Craft::$app->getUser()->getIdentity());
 
-            try {
-                $emailSent = $message->send();
-            } catch (TemplateLoaderException $e) {
-                $settings->addError('template', $e->getMessage());
-                $emailSent = false;
-            } catch (\Throwable $e) {
-                Craft::$app->getErrorHandler()->logException($e);
-                $emailSent = false;
-            }
-
-            if ($emailSent) {
-                Craft::$app->getSession()->setNotice(Craft::t('app', 'Email sent successfully! Check your inbox.'));
+            if ($message->send()) {
+                $this->setSuccessFlash(Craft::t('app', 'Email sent successfully! Check your inbox.'));
             } else {
-                Craft::$app->getSession()->setError(Craft::t('app', 'There was an error testing your email settings.'));
+                $this->setFailFlash(Craft::t('app', 'There was an error testing your email settings.'));
             }
         } else {
-            Craft::$app->getSession()->setError(Craft::t('app', 'Your email settings are invalid.'));
+            $this->setFailFlash(Craft::t('app', 'Your email settings are invalid.'));
         }
 
         // Send the settings back to the template
         Craft::$app->getUrlManager()->setRouteParams([
             'settings' => $settings,
-            'adapter' => $adapter
+            'adapter' => $adapter,
         ]);
     }
 
@@ -334,7 +252,7 @@ class SystemSettingsController extends Controller
         }
 
         if ($globalSet->id) {
-            $title = $globalSet->name;
+            $title = trim($globalSet->name) ?: Craft::t('app', 'Edit Global Set');
         } else {
             $title = Craft::t('app', 'Create a new global set');
         }
@@ -343,24 +261,12 @@ class SystemSettingsController extends Controller
         $crumbs = [
             [
                 'label' => Craft::t('app', 'Settings'),
-                'url' => UrlHelper::url('settings')
+                'url' => UrlHelper::url('settings'),
             ],
             [
                 'label' => Craft::t('app', 'Globals'),
-                'url' => UrlHelper::url('settings/globals')
-            ]
-        ];
-
-        // Tabs
-        $tabs = [
-            'settings' => [
-                'label' => Craft::t('app', 'Settings'),
-                'url' => '#set-settings'
+                'url' => UrlHelper::url('settings/globals'),
             ],
-            'fieldlayout' => [
-                'label' => Craft::t('app', 'Field Layout'),
-                'url' => '#set-fieldlayout'
-            ]
         ];
 
         // Render the template!
@@ -369,12 +275,8 @@ class SystemSettingsController extends Controller
             'globalSet' => $globalSet,
             'title' => $title,
             'crumbs' => $crumbs,
-            'tabs' => $tabs
         ]);
     }
-
-    // Private Methods
-    // =========================================================================
 
     /**
      * Creates a MailSettings model, populated with post data.
@@ -383,14 +285,14 @@ class SystemSettingsController extends Controller
      */
     private function _createMailSettingsFromPost(): MailSettings
     {
-        $request = Craft::$app->getRequest();
         $settings = new MailSettings();
 
-        $settings->fromEmail = $request->getBodyParam('fromEmail');
-        $settings->fromName = $request->getBodyParam('fromName');
-        $settings->template = $request->getBodyParam('template');
-        $settings->transportType = $request->getBodyParam('transportType');
-        $settings->transportSettings = $request->getBodyParam('transportTypes.' . $settings->transportType);
+        $settings->fromEmail = $this->request->getBodyParam('fromEmail');
+        $settings->replyToEmail = $this->request->getBodyParam('replyToEmail') ?: null;
+        $settings->fromName = $this->request->getBodyParam('fromName');
+        $settings->template = $this->request->getBodyParam('template');
+        $settings->transportType = $this->request->getBodyParam('transportType');
+        $settings->transportSettings = $this->request->getBodyParam('transportTypes.' . $settings->transportType);
 
         return $settings;
     }

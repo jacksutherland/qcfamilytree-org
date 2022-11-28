@@ -8,28 +8,32 @@
 namespace craft\web\twig\tokenparsers;
 
 use craft\web\twig\nodes\HeaderNode;
+use Twig\Parser;
+use Twig\Token;
+use Twig\TokenParser\AbstractTokenParser;
 
 /**
  * Class HeaderTokenParser
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
-class HeaderTokenParser extends \Twig_TokenParser
+class HeaderTokenParser extends AbstractTokenParser
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function parse(\Twig_Token $token)
+    public function parse(Token $token)
     {
         $lineno = $token->getLine();
+        /** @var Parser $parser */
+        $parser = $this->parser;
+        $stream = $parser->getStream();
+
         $nodes = [
-            'header' => $this->parser->getExpressionParser()->parseExpression(),
+            'header' => $parser->getExpressionParser()->parseExpression(),
         ];
-        $this->parser->getStream()->expect(\Twig_Token::BLOCK_END_TYPE);
+        $stream->expect(Token::BLOCK_END_TYPE);
 
         return new HeaderNode($nodes, [], $lineno, $this->getTag());
     }

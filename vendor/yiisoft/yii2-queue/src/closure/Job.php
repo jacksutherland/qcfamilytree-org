@@ -1,13 +1,13 @@
 <?php
 /**
- * @link http://www.yiiframework.com/
+ * @link https://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
+ * @license https://www.yiiframework.com/license/
  */
 
 namespace yii\queue\closure;
 
-use SuperClosure\Serializer;
+use function Opis\Closure\unserialize as opis_unserialize;
 use yii\queue\JobInterface;
 
 /**
@@ -29,8 +29,10 @@ class Job implements JobInterface
      */
     public function execute($queue)
     {
-        $serializer = new Serializer();
-        $closure = $serializer->unserialize($this->serialized);
-        $closure();
+        $unserialized = opis_unserialize($this->serialized);
+        if ($unserialized instanceof \Closure) {
+            return $unserialized();
+        }
+        return $unserialized->execute($queue);
     }
 }

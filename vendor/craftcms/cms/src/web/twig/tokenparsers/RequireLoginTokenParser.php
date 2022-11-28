@@ -8,25 +8,29 @@
 namespace craft\web\twig\tokenparsers;
 
 use craft\web\twig\nodes\RequireLoginNode;
+use Twig\Parser;
+use Twig\Token;
+use Twig\TokenParser\AbstractTokenParser;
 
 /**
  * Class RequireLoginTokenParser
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
-class RequireLoginTokenParser extends \Twig_TokenParser
+class RequireLoginTokenParser extends AbstractTokenParser
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function parse(\Twig_Token $token)
+    public function parse(Token $token)
     {
         $lineno = $token->getLine();
-        $this->parser->getStream()->expect(\Twig_Token::BLOCK_END_TYPE);
+        /** @var Parser $parser */
+        $parser = $this->parser;
+        $stream = $parser->getStream();
+
+        $stream->expect(Token::BLOCK_END_TYPE);
 
         return new RequireLoginNode([], [], $lineno, $this->getTag());
     }

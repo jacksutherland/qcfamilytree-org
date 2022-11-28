@@ -8,42 +8,36 @@
 namespace craft\helpers;
 
 use Craft;
+use craft\errors\SiteNotFoundException;
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use Symfony\Component\Filesystem\Exception\IOException;
 use Symfony\Component\Filesystem\Filesystem;
+use UnexpectedValueException;
 use yii\base\ErrorException;
 use yii\base\Exception;
 use yii\base\InvalidArgumentException;
+use ZipArchive;
 
 /**
  * Class FileHelper
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class FileHelper extends \yii\helpers\FileHelper
 {
-    // Static
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
     public static $mimeMagicFile = '@app/config/mimeTypes.php';
-
-    // Properties
-    // =========================================================================
 
     /**
      * @var bool Whether file locks can be used when writing to files.
      * @see useFileLocks()
      */
     private static $_useFileLocks;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * @inheritdoc
@@ -162,7 +156,7 @@ class FileHelper extends \yii\helpers\FileHelper
             '`',
             '!',
             '{',
-            '}'
+            '}',
         ];
 
         // Replace any control characters in the name with a space.
@@ -171,14 +165,31 @@ class FileHelper extends \yii\helpers\FileHelper
         // Strip any characters not allowed.
         $filename = str_replace($disallowedChars, '', strip_tags($filename));
 
-        if ($separator !== null) {
-            $filename = preg_replace('/(\s|' . preg_quote($separator, '/') . ')+/u', $separator, $filename);
+        if (Craft::$app->getDb()->getIsMysql()) {
+            // Strip emojis
+            $filename = StringHelper::replaceMb4($filename, '');
         }
 
         // Nuke any trailing or leading .-_
         $filename = trim($filename, '.-_');
 
-        $filename = $asciiOnly ? StringHelper::toAscii($filename) : $filename;
+        if ($asciiOnly) {
+            try {
+                // Always use the primary site language, so file paths/names are normalized
+                // to ASCII consistently regardless of who is logged in.
+                $language = Craft::$app->getSites()->getPrimarySite()->language;
+            } catch (SiteNotFoundException $e) {
+                $language = Craft::$app->language;
+            }
+
+            $filename = StringHelper::toAscii($filename, $language);
+        }
+
+        if ($separator !== null) {
+            $qSeparator = preg_quote($separator, '/');
+            $filename = preg_replace("/[\s{$qSeparator}]+/u", $separator, $filename);
+            $filename = preg_replace("/^{$qSeparator}+|{$qSeparator}+$/u", '', $filename);
+        }
 
         return $filename;
     }
@@ -259,11 +270,34 @@ class FileHelper extends \yii\helpers\FileHelper
         $mimeType = parent::getMimeType($file, $magicFile, $checkExtension);
 
         // Be forgiving of SVG files, etc., that don't have an XML declaration
-        if ($checkExtension && in_array($mimeType, [null, 'text/plain', 'text/html', 'application/xml', 'text/xml'], true)) {
+        if ($checkExtension && ($mimeType === null || !static::canTrustMimeType($mimeType))) {
             return static::getMimeTypeByExtension($file, $magicFile) ?? $mimeType;
         }
 
+        // Handle invalid SVG mime type reported by PHP (https://bugs.php.net/bug.php?id=79045)
+        if (strpos($mimeType, 'image/svg') === 0) {
+            return 'image/svg+xml';
+        }
+
         return $mimeType;
+    }
+
+    /**
+     * Returns whether a MIME type can be trusted, or whether we should double-check based on the file extension.
+     *
+     * @param string $mimeType
+     * @return bool
+     * @since 3.1.7
+     */
+    public static function canTrustMimeType(string $mimeType): bool
+    {
+        return !in_array($mimeType, [
+            'application/octet-stream',
+            'application/xml',
+            'text/html',
+            'text/plain',
+            'text/xml',
+        ], true);
     }
 
     /**
@@ -271,17 +305,16 @@ class FileHelper extends \yii\helpers\FileHelper
      *
      * @param string $file the file name.
      * @param string $magicFile name of the optional magic database file (or alias), usually something like `/path/to/magic.mime`.
-     * This will be passed as the second parameter to [finfo_open()](http://php.net/manual/en/function.finfo-open.php)
+     * This will be passed as the second parameter to [finfo_open()](https://php.net/manual/en/function.finfo-open.php)
      * when the `fileinfo` extension is installed. If the MIME type is being determined based via [[getMimeTypeByExtension()]]
      * and this is null, it will use the file specified by [[mimeMagicFile]].
      * @param bool $checkExtension whether to use the file extension to determine the MIME type in case
      * `finfo_open()` cannot determine it.
      * @return bool
      */
-    public static function isSvg(string $file, string $magicFile = null, bool $checkExtension = true): bool
+    public static function isSvg(string $file, ?string $magicFile = null, bool $checkExtension = true): bool
     {
-        $mimeType = self::getMimeType($file, $magicFile, $checkExtension);
-        return strpos($mimeType, 'image/svg') === 0;
+        return self::getMimeType($file, $magicFile, $checkExtension) === 'image/svg+xml';
     }
 
     /**
@@ -289,14 +322,15 @@ class FileHelper extends \yii\helpers\FileHelper
      *
      * @param string $file the file name.
      * @param string $magicFile name of the optional magic database file (or alias), usually something like `/path/to/magic.mime`.
-     * This will be passed as the second parameter to [finfo_open()](http://php.net/manual/en/function.finfo-open.php)
+     * This will be passed as the second parameter to [finfo_open()](https://php.net/manual/en/function.finfo-open.php)
      * when the `fileinfo` extension is installed. If the MIME type is being determined based via [[getMimeTypeByExtension()]]
      * and this is null, it will use the file specified by [[mimeMagicFile]].
      * @param bool $checkExtension whether to use the file extension to determine the MIME type in case
      * `finfo_open()` cannot determine it.
      * @return bool
+     * @since 3.0.9
      */
-    public static function isGif(string $file, string $magicFile = null, bool $checkExtension = true): bool
+    public static function isGif(string $file, ?string $magicFile = null, bool $checkExtension = true): bool
     {
         $mimeType = self::getMimeType($file, $magicFile, $checkExtension);
         return $mimeType === 'image/gif';
@@ -309,12 +343,13 @@ class FileHelper extends \yii\helpers\FileHelper
      * @param string $contents the new file contents
      * @param array $options options for file write. Valid options are:
      * - `createDirs`: bool, whether to create parent directories if they do
-     *   not exist. Defaults to true.
+     *   not exist. Defaults to `true`.
      * - `append`: bool, whether the contents should be appended to the
      *   existing contents. Defaults to false.
      * - `lock`: bool, whether a file lock should be used. Defaults to the
-     *   "useWriteFileLock" config setting.
-     * @throws InvalidArgumentException if the parent directory doesn't exist and options[createDirs] is false
+     *   `useWriteFileLock` config setting.
+     * @throws InvalidArgumentException if the parent directory doesn't exist and `options[createDirs]` is `false`
+     * @throws Exception if the parent directory can't be created
      * @throws ErrorException in case of failure
      */
     public static function writeToFile(string $file, string $contents, array $options = [])
@@ -337,7 +372,13 @@ class FileHelper extends \yii\helpers\FileHelper
         }
 
         if ($lock) {
-            Craft::$app->getMutex()->acquire($file);
+            $mutex = Craft::$app->getMutex();
+            $lockName = md5($file);
+            if (!$mutex->acquire($lockName, 3)) {
+                throw new ErrorException("Unable to acquire a lock for file \"{$file}\".");
+            }
+        } else {
+            $lockName = $mutex = null;
         }
 
         $flags = 0;
@@ -349,9 +390,42 @@ class FileHelper extends \yii\helpers\FileHelper
             throw new ErrorException("Unable to write new contents to \"{$file}\".");
         }
 
+        // Invalidate opcache
+        static::invalidate($file);
+
         if ($lock) {
-            Craft::$app->getMutex()->release($file);
+            $mutex->release($lockName);
         }
+    }
+
+    /**
+     * Creates a `.gitignore` file in the given directory if one doesn’t exist yet.
+     *
+     * @param string $path
+     * @param array $options options for file write. Valid options are:
+     * - `createDirs`: bool, whether to create parent directories if they do
+     *   not exist. Defaults to `true`.
+     * - `lock`: bool, whether a file lock should be used. Defaults to `false`.
+     * @throws InvalidArgumentException if the parent directory doesn't exist and `options[createDirs]` is `false`
+     * @throws Exception if the parent directory can't be created
+     * @throws ErrorException in case of failure
+     * @since 3.4.0
+     */
+    public static function writeGitignoreFile(string $path, array $options = [])
+    {
+        $gitignorePath = $path . DIRECTORY_SEPARATOR . '.gitignore';
+
+        if (is_file($gitignorePath)) {
+            return;
+        }
+
+        $contents = "*\n!.gitignore\n";
+        $options = array_merge([
+            // Prevent a segfault if this is called recursively
+            'lock' => false,
+        ], $options);
+
+        static::writeToFile($gitignorePath, $contents, $options);
     }
 
     /**
@@ -363,8 +437,21 @@ class FileHelper extends \yii\helpers\FileHelper
      */
     public static function removeFile(string $path): bool
     {
-        Craft::$app->getDeprecator()->log('craft\\helpers\\FileHelper::removeFile()', 'craft\\helpers\\FileHelper::removeFile() is deprecated. Use craft\\helpers\\FileHelper::unlink() instead.');
         return static::unlink($path);
+    }
+
+    /**
+     * @inheritdoc
+     * @since 3.4.16
+     */
+    public static function unlink($path)
+    {
+        // BaseFileHelper::unlink() doesn't seem to catch all possible exceptions
+        try {
+            return parent::unlink($path);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**
@@ -404,7 +491,15 @@ class FileHelper extends \yii\helpers\FileHelper
             $path = $dir . DIRECTORY_SEPARATOR . $file;
             if (static::filterPath($path, $options)) {
                 if (is_dir($path)) {
-                    static::removeDirectory($path, $options);
+                    try {
+                        static::removeDirectory($path, $options);
+                    } catch (UnexpectedValueException $e) {
+                        // Ignore if the folder has already been removed.
+                        if (strpos($e->getMessage(), 'No such file or directory') === false) {
+                            Craft::warning("Tried to remove " . $path . ", but it doesn't exist.");
+                            throw $e;
+                        }
+                    }
                 } else {
                     static::unlink($path);
                 }
@@ -472,7 +567,7 @@ class FileHelper extends \yii\helpers\FileHelper
                 if (!is_dir($refPath) || static::hasAnythingChanged($path, $refPath)) {
                     return true;
                 }
-            } else if (!is_file($refPath) || filemtime($path) > filemtime($refPath)) {
+            } elseif (!is_file($refPath) || filemtime($path) > filemtime($refPath)) {
                 return true;
             }
         }
@@ -524,5 +619,141 @@ class FileHelper extends \yii\helpers\FileHelper
         $cacheService->set('useFileLocks', $cachedValue, 5184000);
 
         return self::$_useFileLocks;
+    }
+
+    /**
+     * Moves existing files down to `*.1`, `*.2`, etc.
+     *
+     * @param string $basePath The base path to the first file (sans `.X`)
+     * @param int $max The most files that can coexist before we should start deleting them
+     * @since 3.0.38
+     */
+    public static function cycle(string $basePath, int $max = 50)
+    {
+        // Go through all of them and move them forward.
+        for ($i = $max; $i > 0; $i--) {
+            $thisFile = $basePath . ($i == 1 ? '' : '.' . ($i - 1));
+            if (file_exists($thisFile)) {
+                if ($i === $max) {
+                    @unlink($thisFile);
+                } else {
+                    @rename($thisFile, "$basePath.$i");
+                }
+            }
+        }
+    }
+
+    /**
+     * Invalidates a cached file with `clearstatcache()` and `opcache_invalidate()`.
+     *
+     * @param string $file the file path
+     * @since 3.4.0
+     */
+    public static function invalidate(string $file)
+    {
+        clearstatcache(true, $file);
+        if (function_exists('opcache_invalidate') && filter_var(ini_get('opcache.enable'), FILTER_VALIDATE_BOOLEAN)) {
+            @opcache_invalidate($file, true);
+        }
+    }
+
+    /**
+     * Zips a file.
+     *
+     * @param string $path the file/directory path
+     * @param string|null $to the target zip file path. If null, the original path will be used, with “.zip” appended to it.
+     * @return string the zip file path
+     * @throws InvalidArgumentException if `$path` is not a valid file/directory path
+     * @throws Exception if the zip cannot be created
+     * @since 3.5.0
+     */
+    public static function zip(string $path, ?string $to = null): string
+    {
+        $path = static::normalizePath($path);
+
+        if (!file_exists($path)) {
+            throw new InvalidArgumentException("No file/directory exists at $path");
+        }
+
+        if ($to === null) {
+            $to = "$path.zip";
+        }
+
+        $zip = new ZipArchive();
+
+        if ($zip->open($to, ZipArchive::CREATE) !== true) {
+            throw new Exception("Cannot create zip at $to");
+        }
+
+        $name = basename($path);
+
+        if (is_file($path)) {
+            $zip->addFile($path, $name);
+        } else {
+            static::addFilesToZip($zip, $path);
+        }
+
+        $zip->close();
+        return $to;
+    }
+
+    /**
+     * Adds all the files in a given directory to a ZipArchive, preserving the nested directory structure.
+     *
+     * @param ZipArchive $zip the ZipArchive object
+     * @param string $dir the directory path
+     * @param string|null $prefix the path prefix to use when adding the contents of the directory
+     * @param array $options options for file searching. See [[findFiles()]] for available options.
+     * @param 3.5.0
+     */
+    public static function addFilesToZip(ZipArchive $zip, string $dir, ?string $prefix = null, $options = [])
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        if ($prefix !== null) {
+            $prefix = static::normalizePath($prefix) . '/';
+        } else {
+            $prefix = '';
+        }
+
+        $files = static::findFiles($dir, $options);
+
+        foreach ($files as $file) {
+            // Use forward slashes
+            $file = str_replace(DIRECTORY_SEPARATOR, '/', $file);
+            // Preserve the directory structure within the templates folder
+            $zip->addFile($file, $prefix . substr($file, strlen($dir) + 1));
+        }
+    }
+
+    /**
+     * Return a file extension for the given MIME type.
+     *
+     * @param $mimeType
+     * @return string
+     * @throws InvalidArgumentException if no known extensions exist for the given MIME type.
+     * @since 3.5.15
+     */
+    public static function getExtensionByMimeType($mimeType): string
+    {
+        $extensions = FileHelper::getExtensionsByMimeType($mimeType);
+
+        if (empty($extensions)) {
+            throw new InvalidArgumentException("No file extensions are known for the MIME Type $mimeType.");
+        }
+
+        $extension = reset($extensions);
+
+        // Manually correct for some types.
+        switch ($extension) {
+            case 'svgz':
+                return 'svg';
+            case 'jpe':
+                return 'jpg';
+        }
+
+        return $extension;
     }
 }

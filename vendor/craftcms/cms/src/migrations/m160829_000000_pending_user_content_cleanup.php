@@ -4,6 +4,7 @@ namespace craft\migrations;
 
 use craft\db\Migration;
 use craft\db\Query;
+use craft\db\Table;
 use craft\elements\Entry;
 
 /**
@@ -21,11 +22,11 @@ class m160829_000000_pending_user_content_cleanup extends Migration
         // Find any orphaned entries.
         $ids = (new Query())
             ->select(['el.id'])
-            ->from(['{{%elements}} el'])
-            ->leftJoin('{{%entries}} en', '[[en.id]] = [[el.id]]')
+            ->from(['el' => Table::ELEMENTS])
+            ->leftJoin(['en' => Table::ENTRIES], '[[en.id]] = [[el.id]]')
             ->where([
                 'el.type' => Entry::class,
-                'en.id' => null
+                'en.id' => null,
             ])
             ->column($this->db);
 
@@ -33,7 +34,7 @@ class m160829_000000_pending_user_content_cleanup extends Migration
             echo '    > Found ' . count($ids) . ' orphaned element IDs in the elements table: ' . implode(', ', $ids) . "\n";
 
             // Delete 'em
-            $this->delete('{{%elements}}', ['id' => $ids]);
+            $this->delete(Table::ELEMENTS, ['id' => $ids]);
         }
 
         return true;

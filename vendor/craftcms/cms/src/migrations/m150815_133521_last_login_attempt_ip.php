@@ -3,6 +3,7 @@
 namespace craft\migrations;
 
 use craft\db\Migration;
+use craft\db\Table;
 use craft\helpers\MigrationHelper;
 
 /**
@@ -10,15 +11,12 @@ use craft\helpers\MigrationHelper;
  */
 class m150815_133521_last_login_attempt_ip extends Migration
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
     public function safeUp()
     {
-        MigrationHelper::renameColumn('{{%users}}', 'lastLoginAttemptIPAddress', 'lastLoginAttemptIp', $this);
+        MigrationHelper::renameColumn(Table::USERS, 'lastLoginAttemptIPAddress', 'lastLoginAttemptIp', $this);
     }
 
     /**

@@ -13,14 +13,11 @@ use Craft;
  * Settings functions.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
- * @deprecated in 3.0
+ * @since 3.0.0
+ * @deprecated in 3.0.0
  */
 class SystemSettings
 {
-    // Public Methods
-    // =========================================================================
-
     /** @noinspection MagicMethodsValidityInspection */
     /**
      * Returns whether a setting category exists.
@@ -42,8 +39,8 @@ class SystemSettings
      */
     public function __get(string $category): array
     {
-        Craft::$app->getDeprecator()->log('craft.systemSettings.[category]', 'craft.systemSettings.[category] has been deprecated. Use craft.app.systemSettings.getSettings(\'category\') instead.');
+        Craft::$app->getDeprecator()->log('craft.systemSettings.[category]', '`craft.systemSettings.[category]` has been deprecated. Use `craft.app.projectConfig.get(\'[category]\')` instead.');
 
-        return Craft::$app->getSystemSettings()->getSettings($category);
+        return Craft::$app->getProjectConfig()->get($category) ?? [];
     }
 }

@@ -1,0 +1,65 @@
+fieldLayouts:
+  db4b7cc7-68f8-466b-98bc-1de3f950172f:
+    tabs:
+      -
+        elements:
+          -
+            instructions: null
+            label: Title
+            type: craft\fieldlayoutelements\EntryTitleField
+          -
+            fieldUid: 5d769594-de8e-4851-b176-18f8b65442d1
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: 37c534b6-8e13-441e-b1e9-4de8195b8788
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: 984e5618-3661-46df-90d3-ad35d7398245
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: a0668e76-464c-4f3a-a60e-c75a6c3f3ede
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: 02ecd261-7708-48ba-b76e-64480108d4b7
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: 1d2450dd-01a1-4146-aecf-8f7b74beab9a
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+        name: Header
+        sortOrder: 1
+      -
+        elements:
+          -
+            fieldUid: 53caff22-2ce8-4149-83e4-74b104ad4bb6
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+        name: Modules
+        sortOrder: 2
+      -
+        elements:
+          -
+            fieldUid: 6290fb4a-532f-47d9-8c7b-d38c5baff567
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: fbe8468b-6038-4ceb-8c99-10c9c32fd884
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+          -
+            fieldUid: d1e57679-2bcb-4952-b8b0-4a51006cc8f9
+            required: false
+            type: craft\fieldlayoutelements\CustomField
+        name: SEO
+        sortOrder: 3
+handle: genericPage
+hasTitleField: true
+name: 'Generic Page'
+section: ba9fdd62-9aa2-4539-8405-0b55f3d54457
+sortOrder: 1
+titleFormat: null

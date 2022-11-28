@@ -19,20 +19,19 @@ use yii\web\Response;
  * Note that all actions in the controller require an authenticated Craft session via [[allowAnonymous]].
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class PluginsController extends Controller
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function init()
+    public function beforeAction($action)
     {
         // All plugin actions require an admin
         $this->requireAdmin();
+
+        return parent::beforeAction($action);
     }
 
     /**
@@ -43,14 +42,36 @@ class PluginsController extends Controller
     public function actionInstallPlugin(): Response
     {
         $this->requirePostRequest();
-        $pluginHandle = Craft::$app->getRequest()->getRequiredBodyParam('pluginHandle');
 
-        if (Craft::$app->getPlugins()->installPlugin($pluginHandle)) {
-            Craft::$app->getSession()->setNotice(Craft::t('app', 'Plugin installed.'));
+        $pluginHandle = $this->request->getRequiredBodyParam('pluginHandle');
+        $edition = $this->request->getBodyParam('edition');
+
+        if (Craft::$app->getPlugins()->installPlugin($pluginHandle, $edition)) {
+            $this->setSuccessFlash(Craft::t('app', 'Plugin installed.'));
         } else {
-            Craft::$app->getSession()->setError(Craft::t('app', 'Couldn’t install plugin.'));
+            $this->setFailFlash(Craft::t('app', 'Couldn’t install plugin.'));
         }
 
+        return $this->redirectToPostedUrl();
+    }
+
+    /**
+     * Installs a plugin.
+     *
+     * @return Response
+     */
+    public function actionSwitchEdition(): Response
+    {
+        $this->requirePostRequest();
+        $pluginHandle = $this->request->getRequiredBodyParam('pluginHandle');
+        $edition = $this->request->getRequiredBodyParam('edition');
+        Craft::$app->getPlugins()->switchEdition($pluginHandle, $edition);
+
+        if ($this->request->getAcceptsJson()) {
+            return $this->asJson(['success' => true]);
+        }
+
+        $this->setSuccessFlash(Craft::t('app', 'Plugin edition changed.'));
         return $this->redirectToPostedUrl();
     }
 
@@ -62,12 +83,12 @@ class PluginsController extends Controller
     public function actionUninstallPlugin(): Response
     {
         $this->requirePostRequest();
-        $pluginHandle = Craft::$app->getRequest()->getRequiredBodyParam('pluginHandle');
+        $pluginHandle = $this->request->getRequiredBodyParam('pluginHandle');
 
         if (Craft::$app->getPlugins()->uninstallPlugin($pluginHandle)) {
-            Craft::$app->getSession()->setNotice(Craft::t('app', 'Plugin uninstalled.'));
+            $this->setSuccessFlash(Craft::t('app', 'Plugin uninstalled.'));
         } else {
-            Craft::$app->getSession()->setError(Craft::t('app', 'Couldn’t uninstall plugin.'));
+            $this->setFailFlash(Craft::t('app', 'Couldn’t uninstall plugin.'));
         }
 
         return $this->redirectToPostedUrl();
@@ -101,12 +122,14 @@ class PluginsController extends Controller
     public function actionEnablePlugin(): Response
     {
         $this->requirePostRequest();
-        $pluginHandle = Craft::$app->getRequest()->getRequiredBodyParam('pluginHandle');
+        $pluginHandle = $this->request->getRequiredBodyParam('pluginHandle');
+
         if (Craft::$app->getPlugins()->enablePlugin($pluginHandle)) {
-            Craft::$app->getSession()->setNotice(Craft::t('app', 'Plugin enabled.'));
+            $this->setSuccessFlash(Craft::t('app', 'Plugin enabled.'));
         } else {
-            Craft::$app->getSession()->setError(Craft::t('app', 'Couldn’t enable plugin.'));
+            $this->setFailFlash(Craft::t('app', 'Couldn’t enable plugin.'));
         }
+
         return $this->redirectToPostedUrl();
     }
 
@@ -118,12 +141,14 @@ class PluginsController extends Controller
     public function actionDisablePlugin(): Response
     {
         $this->requirePostRequest();
-        $pluginHandle = Craft::$app->getRequest()->getRequiredBodyParam('pluginHandle');
+        $pluginHandle = $this->request->getRequiredBodyParam('pluginHandle');
+
         if (Craft::$app->getPlugins()->disablePlugin($pluginHandle)) {
-            Craft::$app->getSession()->setNotice(Craft::t('app', 'Plugin disabled.'));
+            $this->setSuccessFlash(Craft::t('app', 'Plugin disabled.'));
         } else {
-            Craft::$app->getSession()->setError(Craft::t('app', 'Couldn’t disable plugin.'));
+            $this->setFailFlash(Craft::t('app', 'Couldn’t disable plugin.'));
         }
+
         return $this->redirectToPostedUrl();
     }
 
@@ -136,8 +161,8 @@ class PluginsController extends Controller
     public function actionSavePluginSettings()
     {
         $this->requirePostRequest();
-        $pluginHandle = Craft::$app->getRequest()->getRequiredBodyParam('pluginHandle');
-        $settings = Craft::$app->getRequest()->getBodyParam('settings', []);
+        $pluginHandle = $this->request->getRequiredBodyParam('pluginHandle');
+        $settings = $this->request->getBodyParam('settings', []);
         $plugin = Craft::$app->getPlugins()->getPlugin($pluginHandle);
 
         if ($plugin === null) {
@@ -145,18 +170,17 @@ class PluginsController extends Controller
         }
 
         if (!Craft::$app->getPlugins()->savePluginSettings($plugin, $settings)) {
-            Craft::$app->getSession()->setError(Craft::t('app', 'Couldn’t save plugin settings.'));
+            $this->setFailFlash(Craft::t('app', 'Couldn’t save plugin settings.'));
 
             // Send the plugin back to the template
             Craft::$app->getUrlManager()->setRouteParams([
-                'plugin' => $plugin
+                'plugin' => $plugin,
             ]);
 
             return null;
         }
 
-        Craft::$app->getSession()->setNotice(Craft::t('app', 'Plugin settings saved.'));
-
+        $this->setSuccessFlash(Craft::t('app', 'Plugin settings saved.'));
         return $this->redirectToPostedUrl();
     }
 }

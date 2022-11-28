@@ -1,0 +1,17 @@
+contentColumnType: string
+fieldGroup: 435b0ef2-0c42-40bf-9055-6769daac4110
+handle: heroButtonEntry
+instructions: ''
+name: 'Hero Button Entry'
+searchable: true
+settings:
+  limit: '1'
+  localizeRelations: false
+  selectionLabel: ''
+  source: null
+  sources: '*'
+  targetSiteId: null
+  viewMode: null
+translationKeyFormat: null
+translationMethod: site
+type: craft\fields\Entries

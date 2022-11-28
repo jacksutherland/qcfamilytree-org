@@ -12,6 +12,7 @@
 
 namespace Composer\Command;
 
+use Composer\Composer;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -20,12 +21,16 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class AboutCommand extends BaseCommand
 {
+    /**
+     * @return void
+     */
     protected function configure()
     {
         $this
             ->setName('about')
-            ->setDescription('Shows the short information about Composer.')
-            ->setHelp(<<<EOT
+            ->setDescription('Shows a short information about Composer.')
+            ->setHelp(
+                <<<EOT
 <info>php composer.phar about</info>
 EOT
             )
@@ -34,11 +39,16 @@ EOT
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $this->getIO()->write(<<<EOT
-<info>Composer - Package Management for PHP</info>
+        $composerVersion = Composer::getVersion();
+
+        $this->getIO()->write(
+            <<<EOT
+<info>Composer - Dependency Manager for PHP - version $composerVersion</info>
 <comment>Composer is a dependency manager tracking local dependencies of your projects and libraries.
 See https://getcomposer.org/ for more information.</comment>
 EOT
         );
+
+        return 0;
     }
 }

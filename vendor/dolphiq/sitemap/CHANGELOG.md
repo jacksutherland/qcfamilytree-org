@@ -1,4 +1,28 @@
 # sitemap Changelog
+## 1.3.2- 2020-10-27
+### Fixed
+- Changed the uppercase "S" to a lowercase "s" to fix a Composer 2 compatibility issue.
+
+## 1.3.1 - 2020-10-22
+### Fixed
+- Fixed error when adding a category by changing table used to `Table::CATEGORYGROUPS`
+- Added empty check for linkId to prevend future type errors 
+
+## 1.3.0 - 2020-07-03
+### Fixed
+- Fixed compatibility with Craft CMS 3.4 +
+- Added fix for deleted sites
+- Fix and/or operation order
+
+## 1.2.0 - 2019-11-01
+### Fixed
+- Fixed compatibility with Craft CMS 3.2 +
+- Fixed showing multiple records for revisions
+- Fixed bug showing url's with expired dates
+
+## 1.1.0 - 2019-03-29
+### Added
+- Added Craft CMS 3.1.20 Project Config Support
 
 ## 1.0.9 - 2018-02-21
 ### Added

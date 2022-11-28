@@ -14,7 +14,7 @@ namespace Composer\Command;
 
 use Composer\Package\CompletePackageInterface;
 use Composer\Repository\RepositoryInterface;
-use Composer\Repository\ArrayRepository;
+use Composer\Repository\RootPackageRepository;
 use Composer\Repository\RepositoryFactory;
 use Composer\Util\Platform;
 use Composer\Util\ProcessExecutor;
@@ -29,7 +29,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 class HomeCommand extends BaseCommand
 {
     /**
-     * {@inheritDoc}
+     * @inheritDoc
+     *
+     * @return void
      */
     protected function configure()
     {
@@ -42,18 +44,21 @@ class HomeCommand extends BaseCommand
                 new InputOption('homepage', 'H', InputOption::VALUE_NONE, 'Open the homepage instead of the repository URL.'),
                 new InputOption('show', 's', InputOption::VALUE_NONE, 'Only show the homepage or repository URL.'),
             ))
-            ->setHelp(<<<EOT
+            ->setHelp(
+                <<<EOT
 The home command opens or shows a package's repository URL or
 homepage in your default browser.
 
 To open the homepage by default, use -H or --homepage.
 To show instead of open the repository or homepage URL, use -s or --show.
+
+Read more at https://getcomposer.org/doc/03-cli.md#browse-home
 EOT
             );
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
@@ -94,6 +99,11 @@ EOT
         return $return;
     }
 
+    /**
+     * @param bool $showHomepage
+     * @param bool $showOnly
+     * @return bool
+     */
     private function handlePackage(CompletePackageInterface $package, $showHomepage, $showOnly)
     {
         $support = $package->getSupport();
@@ -119,6 +129,7 @@ EOT
      * opens a url in your system default browser
      *
      * @param string $url
+     * @return void
      */
     private function openBrowser($url)
     {
@@ -126,7 +137,9 @@ EOT
 
         $process = new ProcessExecutor($this->getIO());
         if (Platform::isWindows()) {
-            return $process->execute('start "web" explorer "' . $url . '"', $output);
+            $process->execute('start "web" explorer ' . $url, $output);
+
+            return;
         }
 
         $linux = $process->execute('which xdg-open', $output);
@@ -154,7 +167,7 @@ EOT
 
         if ($composer) {
             return array_merge(
-                array(new ArrayRepository(array($composer->getPackage()))), // root package
+                array(new RootPackageRepository($composer->getPackage())), // root package
                 array($composer->getRepositoryManager()->getLocalRepository()), // installed packages
                 $composer->getRepositoryManager()->getRepositories() // remotes
             );

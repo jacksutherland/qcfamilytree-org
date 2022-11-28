@@ -9,30 +9,26 @@ namespace craft\web\twig\nodes;
 
 use Craft;
 use craft\helpers\StringHelper;
+use Twig\Compiler;
+use Twig\Node\Node;
 
 /**
  * Cache twig node.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
-class CacheNode extends \Twig_Node
+class CacheNode extends Node
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var int
      */
     private static $_cacheCount = 1;
 
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function compile(\Twig_Compiler $compiler)
+    public function compile(Compiler $compiler)
     {
         $n = self::$_cacheCount++;
 
@@ -56,7 +52,7 @@ class CacheNode extends \Twig_Node
                 ->raw(' || !(')
                 ->subcompile($conditions)
                 ->raw(')');
-        } else if ($ignoreConditions) {
+        } elseif ($ignoreConditions) {
             $compiler
                 ->raw(' || (')
                 ->subcompile($ignoreConditions)
@@ -77,7 +73,7 @@ class CacheNode extends \Twig_Node
 
         $compiler
             ->raw(";\n")
-            ->write("\$cacheBody{$n} = \$cacheService->getTemplateCache(\$cacheKey{$n}, {$global});\n")
+            ->write("\$cacheBody{$n} = \$cacheService->getTemplateCache(\$cacheKey{$n}, {$global}, true);\n")
             ->outdent()
             ->write("} else {\n")
             ->indent()
@@ -88,7 +84,7 @@ class CacheNode extends \Twig_Node
             ->indent()
             ->write("if (!\$ignoreCache{$n}) {\n")
             ->indent()
-            ->write("\$cacheService->startTemplateCache(\$cacheKey{$n});\n")
+            ->write("\$cacheService->startTemplateCache(true, $global);\n")
             ->outdent()
             ->write("}\n")
             ->write("ob_start();\n")
@@ -124,7 +120,7 @@ class CacheNode extends \Twig_Node
         }
 
         $compiler
-            ->raw(", \$cacheBody{$n});\n")
+            ->raw(", \$cacheBody{$n}, true);\n")
             ->outdent()
             ->write("}\n")
             ->outdent()

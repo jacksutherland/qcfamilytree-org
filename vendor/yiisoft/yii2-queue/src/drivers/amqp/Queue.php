@@ -1,8 +1,8 @@
 <?php
 /**
- * @link http://www.yiiframework.com/
+ * @link https://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
+ * @license https://www.yiiframework.com/license/
  */
 
 namespace yii\queue\amqp;
@@ -18,7 +18,7 @@ use yii\queue\cli\Queue as CliQueue;
 /**
  * Amqp Queue.
  *
- * @deprecated since 2.0.2 and will be removed in 2.1. Consider using amqp_interop driver instead.
+ * @deprecated since 2.0.2 and will be removed in 3.0. Consider using amqp_interop driver instead.
  *
  * @author Roman Zhuravlev <zhuravljov@gmail.com>
  */

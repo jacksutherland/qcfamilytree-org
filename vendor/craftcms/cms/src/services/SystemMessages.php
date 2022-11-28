@@ -9,39 +9,33 @@ namespace craft\services;
 
 use Craft;
 use craft\db\Query;
+use craft\db\Table;
 use craft\events\RegisterEmailMessagesEvent;
 use craft\helpers\ArrayHelper;
 use craft\models\SystemMessage;
 use craft\records\SystemMessage as EmailMessageRecord;
 use yii\base\Component;
+use yii\db\Expression;
 
 /**
  * System Messages service.
- * An instance of the System Messages service is globally accessible in Craft via [[\craft\base\ApplicationTrait::getSystemMessages()|`Craft::$app->systemMessages`]].
+ *
+ * An instance of the service is available via [[\craft\base\ApplicationTrait::getSystemMessages()|`Craft::$app->systemMessages`]].
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class SystemMessages extends Component
 {
-    // Constants
-    // =========================================================================
-
     /**
      * @event RegisterEmailMessagesEvent The event that is triggered when registering email messages.
      */
     const EVENT_REGISTER_MESSAGES = 'registerMessages';
 
-    // Properties
-    // =========================================================================
-
     /**
      * @var SystemMessage[]|null
      */
     private $_defaultMessages;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * Returns all of the default system email messages, without subject/body overrides.
@@ -52,6 +46,13 @@ class SystemMessages extends Component
     {
         if ($this->_defaultMessages !== null) {
             return $this->_defaultMessages;
+        }
+
+        // If the current language isn't one of the site's languages, switch to the primary site's language
+        $language = Craft::$app->language;
+        $i18n = Craft::$app->getI18n();
+        if (!in_array($language, $i18n->getSiteLocaleIds())) {
+            Craft::$app->language = $i18n->getPrimarySiteLocaleId();
         }
 
         $messages = [
@@ -83,7 +84,7 @@ class SystemMessages extends Component
 
         // Give plugins a chance to add additional messages
         $event = new RegisterEmailMessagesEvent([
-            'messages' => $messages
+            'messages' => $messages,
         ]);
         $this->trigger(self::EVENT_REGISTER_MESSAGES, $event);
 
@@ -96,6 +97,9 @@ class SystemMessages extends Component
                 $messages[$key] = new SystemMessage($message);
             }
         }
+
+        // Put the original language back
+        Craft::$app->language = $language;
 
         return $this->_defaultMessages = $messages;
     }
@@ -167,11 +171,25 @@ class SystemMessages extends Component
             $language = Craft::$app->getSites()->getPrimarySite()->language;
         }
 
+        if (($pos = strpos($language, '-')) !== false) {
+            $languageId = substr($language, 0, $pos);
+        } else {
+            $languageId = $language;
+        }
+
         // Fetch the customization (if there is one)
         $override = $this->_createMessagesQuery()
             ->select(['subject', 'body'])
-            ->where(['key' => $key, 'language' => $language])
-            ->indexBy(null)
+            ->where(['key' => $key])
+            ->andWhere([
+                'or',
+                ['language' => [$language, $languageId]],
+                ['like', 'language', "{$languageId}%", false],
+            ])
+            ->orderBy(new Expression('case when ([[language]] = :language) then 0 when ([[language]] = :languageId) then 1 else 2 end', [
+                'language' => $language,
+                'languageId' => $languageId,
+            ]))
             ->one();
 
         // Combine them to create the final message
@@ -208,9 +226,6 @@ class SystemMessages extends Component
         return false;
     }
 
-    // Private Methods
-    // =========================================================================
-
     /**
      * Returns a new Query prepped to return system email messages from the DB.
      *
@@ -220,7 +235,7 @@ class SystemMessages extends Component
     {
         return (new Query())
             ->select(['key', 'subject', 'body'])
-            ->from(['{{%systemmessages}}'])
+            ->from([Table::SYSTEMMESSAGES])
             ->indexBy('key');
     }
 

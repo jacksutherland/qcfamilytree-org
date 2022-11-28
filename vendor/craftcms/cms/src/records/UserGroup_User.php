@@ -8,6 +8,7 @@
 namespace craft\records;
 
 use craft\db\ActiveRecord;
+use craft\db\Table;
 use yii\db\ActiveQueryInterface;
 
 /**
@@ -19,13 +20,10 @@ use yii\db\ActiveQueryInterface;
  * @property UserGroup $group Group
  * @property User $user User
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class UserGroup_User extends ActiveRecord
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -42,7 +40,7 @@ class UserGroup_User extends ActiveRecord
      */
     public static function tableName(): string
     {
-        return '{{%usergroups_users}}';
+        return Table::USERGROUPS_USERS;
     }
 
     /**

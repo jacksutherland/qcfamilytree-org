@@ -1,8 +1,8 @@
 <?php
 /**
- * @link http://www.yiiframework.com/
+ * @link https://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
+ * @license https://www.yiiframework.com/license/
  */
 
 namespace yii\queue\amqp_interop;
@@ -15,6 +15,7 @@ use Enqueue\AmqpTools\RabbitMqDlxDelayStrategy;
 use Interop\Amqp\AmqpConnectionFactory;
 use Interop\Amqp\AmqpConsumer;
 use Interop\Amqp\AmqpContext;
+use Interop\Amqp\AmqpDestination;
 use Interop\Amqp\AmqpMessage;
 use Interop\Amqp\AmqpQueue;
 use Interop\Amqp\AmqpTopic;
@@ -169,11 +170,51 @@ class Queue extends CliQueue
      */
     public $queueName = 'interop_queue';
     /**
+     * Setting optional arguments for the queue (key-value pairs)
+     * ```php
+     * [
+     *    'x-expires' => 300000,
+     *    'x-max-priority' => 10
+     * ]
+     * ```
+     *
+     * @var array
+     * @since 2.3.3
+     * @see https://www.rabbitmq.com/queues.html#optional-arguments
+     */
+    public $queueOptionalArguments = [];
+    /**
+     * Set of flags for the queue
+     * @var int
+     * @since 2.3.5
+     * @see AmqpDestination
+     */
+    public $queueFlags = AmqpQueue::FLAG_DURABLE;
+    /**
      * The exchange used to publish messages to.
      *
      * @var string
      */
     public $exchangeName = 'exchange';
+    /**
+     * The exchange type. Can take values: direct, fanout, topic, headers
+     * @var string
+     * @since 2.3.3
+     */
+    public $exchangeType = AmqpTopic::TYPE_DIRECT;
+    /**
+     * Set of flags for the exchange
+     * @var int
+     * @since 2.3.5
+     * @see AmqpDestination
+     */
+    public $exchangeFlags = AmqpTopic::FLAG_DURABLE;
+    /**
+     * Routing key for publishing messages. Default is NULL.
+     *
+     * @var string|null
+     */
+    public $routingKey;
     /**
      * Defines the amqp interop transport being internally used. Currently supports lib, ext and bunny values.
      *
@@ -223,6 +264,28 @@ class Queue extends CliQueue
         Event::on(BaseApp::class, BaseApp::EVENT_AFTER_REQUEST, function () {
             $this->close();
         });
+
+        if (extension_loaded('pcntl') && function_exists('pcntl_signal') && PHP_MAJOR_VERSION >= 7) {
+            // https://github.com/php-amqplib/php-amqplib#unix-signals
+            $signals = [SIGTERM, SIGQUIT, SIGINT, SIGHUP];
+
+            foreach ($signals as $signal) {
+                $oldHandler = null;
+                // This got added in php 7.1 and might not exist on all supported versions
+                if (function_exists('pcntl_signal_get_handler')) {
+                    $oldHandler = pcntl_signal_get_handler($signal);
+                }
+
+                pcntl_signal($signal, static function ($signal) use ($oldHandler) {
+                    if ($oldHandler && is_callable($oldHandler)) {
+                        $oldHandler($signal);
+                    }
+
+                    pcntl_signal($signal, SIG_DFL);
+                    posix_kill(posix_getpid(), $signal);
+                });
+            }
+        }
     }
 
     /**
@@ -235,7 +298,8 @@ class Queue extends CliQueue
 
         $queue = $this->context->createQueue($this->queueName);
         $consumer = $this->context->createConsumer($queue);
-        $this->context->subscribe($consumer, function (AmqpMessage $message, AmqpConsumer $consumer) {
+
+        $callback = function (AmqpMessage $message, AmqpConsumer $consumer) {
             if ($message->isRedelivered()) {
                 $consumer->acknowledge($message);
 
@@ -256,9 +320,11 @@ class Queue extends CliQueue
             }
 
             return true;
-        });
+        };
 
-        $this->context->consume();
+        $subscriptionConsumer = $this->context->createSubscriptionConsumer();
+        $subscriptionConsumer->subscribe($consumer, $callback);
+        $subscriptionConsumer->consume();
     }
 
     /**
@@ -298,6 +364,10 @@ class Queue extends CliQueue
         if ($priority) {
             $message->setProperty(self::PRIORITY, $priority);
             $producer->setPriority($priority);
+        }
+
+        if (null !== $this->routingKey) {
+            $message->setRoutingKey($this->routingKey);
         }
 
         $producer->send($topic, $message);
@@ -380,16 +450,19 @@ class Queue extends CliQueue
         }
 
         $queue = $this->context->createQueue($this->queueName);
-        $queue->addFlag(AmqpQueue::FLAG_DURABLE);
-        $queue->setArguments(['x-max-priority' => $this->maxPriority]);
+        $queue->setFlags($this->queueFlags);
+        $queue->setArguments(array_merge(
+            ['x-max-priority' => $this->maxPriority],
+            $this->queueOptionalArguments
+        ));
         $this->context->declareQueue($queue);
 
         $topic = $this->context->createTopic($this->exchangeName);
-        $topic->setType(AmqpTopic::TYPE_DIRECT);
-        $topic->addFlag(AmqpTopic::FLAG_DURABLE);
+        $topic->setType($this->exchangeType);
+        $topic->setFlags($this->exchangeFlags);
         $this->context->declareTopic($topic);
 
-        $this->context->bind(new AmqpBind($queue, $topic));
+        $this->context->bind(new AmqpBind($queue, $topic, $this->routingKey));
 
         $this->setupBrokerDone = true;
     }

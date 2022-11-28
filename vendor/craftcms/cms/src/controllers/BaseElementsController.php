@@ -7,43 +7,30 @@
 
 namespace craft\controllers;
 
-use Craft;
 use craft\base\ElementInterface;
 use craft\errors\InvalidTypeException;
 use craft\web\Controller;
 use yii\web\BadRequestHttpException;
-use yii\web\ForbiddenHttpException;
 
 /**
  * The BaseElementsController class provides some common methods for [[ElementsController]] and [[ElementIndexesController]].
  * Note that all actions in the controller require an authenticated Craft session via [[allowAnonymous]].
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 abstract class BaseElementsController extends Controller
 {
-    // Public Methods
-    // =========================================================================
-
     /**
-     * Initializes the application component.
-     *
-     * @throws ForbiddenHttpException if this is not a Control Panel request
+     * @inheritdoc
      */
-    public function init()
+    public function beforeAction($action)
     {
-        // Element controllers only support JSON responses
-        $this->requireAcceptsJson();
+        // All actions require CP requests
+        $this->requireCpRequest();
 
-        // Element controllers are only available to the Control Panel
-        if (!Craft::$app->getRequest()->getIsCpRequest()) {
-            throw new ForbiddenHttpException('Action only available from the Control Panel');
-        }
+        return parent::beforeAction($action);
     }
-
-    // Protected Methods
-    // =========================================================================
 
     /**
      * Returns the posted element type class.
@@ -53,7 +40,7 @@ abstract class BaseElementsController extends Controller
      */
     protected function elementType(): string
     {
-        $class = Craft::$app->getRequest()->getRequiredParam('elementType');
+        $class = $this->request->getRequiredParam('elementType');
 
         // TODO: should probably move the code inside try{} to a helper method
         try {
@@ -74,6 +61,6 @@ abstract class BaseElementsController extends Controller
      */
     protected function context()
     {
-        return Craft::$app->getRequest()->getParam('context');
+        return $this->request->getParam('context');
     }
 }

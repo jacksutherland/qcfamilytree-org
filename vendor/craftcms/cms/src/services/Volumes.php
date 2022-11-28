@@ -1,44 +1,53 @@
 <?php
+/**
+ * @link https://craftcms.com/
+ * @copyright Copyright (c) Pixel & Tonic, Inc.
+ * @license https://craftcms.github.io/license/
+ */
 
 namespace craft\services;
 
 use Craft;
-use craft\base\Volume;
+use craft\base\Field;
+use craft\base\MemoizableArray;
 use craft\base\VolumeInterface;
 use craft\db\Query;
+use craft\db\Table;
 use craft\elements\Asset;
 use craft\errors\MissingComponentException;
-use craft\errors\VolumeException;
+use craft\events\ConfigEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\VolumeEvent;
+use craft\helpers\ArrayHelper;
 use craft\helpers\Component as ComponentHelper;
+use craft\helpers\Db;
+use craft\helpers\Json;
+use craft\helpers\ProjectConfig as ProjectConfigHelper;
+use craft\helpers\StringHelper;
+use craft\models\FieldLayout;
 use craft\records\Volume as AssetVolumeRecord;
 use craft\records\VolumeFolder;
 use craft\volumes\Local;
 use craft\volumes\MissingVolume;
 use yii\base\Component;
+use yii\base\UnknownPropertyException;
 
 /**
- * Class AssetVolumesService
+ * Volumes service.
+ *
+ * An instance of the service is available via [[\craft\base\ApplicationTrait::getVolumes()|`Craft::$app->volumes()`]].
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
- * @license http://craftcms.com/license Craft License Agreement
- * @see http://craftcms.com
- * @package craft.app.services
- * @since 3.0
+ * @since 3.0.0
  */
 class Volumes extends Component
 {
-    // Constants
-    // =========================================================================
-
     /**
      * @event RegisterComponentTypesEvent The event that is triggered when registering volume types.
      *
      * Volume types must implement [[VolumeInterface]]. [[Volume]] provides a base implementation.
      *
-     * See [Volume Types](https://docs.craftcms.com/v3/volume-types.html) for documentation on creating volume types.
+     * See [Volume Types](https://craftcms.com/docs/3.x/extend/volume-types.html) for documentation on creating volume types.
      * ---
      * ```php
      * use craft\events\RegisterComponentTypesEvent;
@@ -71,60 +80,40 @@ class Volumes extends Component
     const EVENT_BEFORE_DELETE_VOLUME = 'beforeDeleteVolume';
 
     /**
+     * @event VolumeEvent The event that is triggered before a volume delete is applied to the database.
+     * @since 3.1.0
+     */
+    const EVENT_BEFORE_APPLY_VOLUME_DELETE = 'beforeApplyVolumeDelete';
+
+    /**
      * @event VolumeEvent The event that is triggered after a Asset volume is deleted.
      */
     const EVENT_AFTER_DELETE_VOLUME = 'afterDeleteVolume';
 
-    // Properties
-    // =========================================================================
+    const CONFIG_VOLUME_KEY = 'volumes';
 
     /**
-     * @var
+     * @var MemoizableArray<VolumeInterface>|null
+     * @see _volumes()
      */
-    private $_allVolumeIds;
-
-    /**
-     * @var
-     */
-    private $_viewableVolumeIds;
-
-    /**
-     * @var
-     */
-    private $_viewableVolumes;
-
-    /**
-     * @var
-     */
-    private $_publicVolumeIds;
-
-    /**
-     * @var
-     */
-    private $_publicVolumes;
-
-    /**
-     * @var
-     */
-    private $_volumesById;
-
-    /**
-     * @var
-     */
-    private $_volumesByHandle;
-
-    /**
-     * @var bool
-     */
-    private $_fetchedAllVolumes = false;
+    private $_volumes;
 
     /**
      * @var array|null Volume setting overrides
      */
     private $_overrides;
 
-    // Public Methods
-    // =========================================================================
+    /**
+     * Serializer
+     *
+     * @since 3.5.14
+     */
+    public function __serialize()
+    {
+        $vars = get_object_vars($this);
+        unset($vars['_volumes']);
+        return $vars;
+    }
 
     // Volumes
     // -------------------------------------------------------------------------
@@ -137,11 +126,11 @@ class Volumes extends Component
     public function getAllVolumeTypes(): array
     {
         $volumeTypes = [
-            Local::class
+            Local::class,
         ];
 
         $event = new RegisterComponentTypesEvent([
-            'types' => $volumeTypes
+            'types' => $volumeTypes,
         ]);
 
         $this->trigger(self::EVENT_REGISTER_VOLUME_TYPES, $event);
@@ -152,23 +141,11 @@ class Volumes extends Component
     /**
      * Returns all of the volume IDs.
      *
-     * @return array
+     * @return int[]
      */
     public function getAllVolumeIds(): array
     {
-        if ($this->_allVolumeIds !== null) {
-            return $this->_allVolumeIds;
-        }
-
-        if ($this->_fetchedAllVolumes) {
-            return $this->_allVolumeIds = array_keys($this->_volumesById);
-        }
-
-        return $this->_allVolumeIds = (new Query())
-            ->select(['id'])
-            ->from(['{{%volumes}}'])
-            ->orderBy('sortOrder asc')
-            ->column();
+        return ArrayHelper::getColumn($this->getAllVolumes(), 'id', false);
     }
 
     /**
@@ -178,19 +155,7 @@ class Volumes extends Component
      */
     public function getViewableVolumeIds(): array
     {
-        if ($this->_viewableVolumeIds !== null) {
-            return $this->_viewableVolumeIds;
-        }
-
-        $this->_viewableVolumeIds = [];
-
-        foreach ($this->getAllVolumeIds() as $volumeId) {
-            if (Craft::$app->user->checkPermission('viewVolume:' . $volumeId)) {
-                $this->_viewableVolumeIds[] = $volumeId;
-            }
-        }
-
-        return $this->_viewableVolumeIds;
+        return ArrayHelper::getColumn($this->getViewableVolumes(), 'id', false);
     }
 
     /**
@@ -200,20 +165,14 @@ class Volumes extends Component
      */
     public function getViewableVolumes(): array
     {
-        if ($this->_viewableVolumes !== null) {
-            return $this->_viewableVolumes;
+        if (Craft::$app->getRequest()->getIsConsoleRequest()) {
+            return $this->getAllVolumes();
         }
 
-        $this->_viewableVolumes = [];
-
-        foreach ($this->getAllVolumes() as $volume) {
-            /** @var Volume $volume */
-            if (Craft::$app->user->checkPermission('viewVolume:' . $volume->id)) {
-                $this->_viewableVolumes[] = $volume;
-            }
-        }
-
-        return $this->_viewableVolumes;
+        $userSession = Craft::$app->getUser();
+        return ArrayHelper::where($this->getAllVolumes(), function(VolumeInterface $volume) use ($userSession) {
+            return $userSession->checkPermission('viewVolume:' . $volume->uid);
+        }, true, true, false);
     }
 
     /**
@@ -223,20 +182,7 @@ class Volumes extends Component
      */
     public function getPublicVolumeIds(): array
     {
-        if ($this->_publicVolumeIds !== null) {
-            return $this->_publicVolumeIds;
-        }
-
-        $this->_publicVolumeIds = [];
-
-        foreach ($this->getAllVolumes() as $volume) {
-            /** @var Volume $volume */
-            if ($volume->hasUrls) {
-                $this->_publicVolumeIds[] = $volume->id;
-            }
-        }
-
-        return $this->_publicVolumeIds;
+        return ArrayHelper::getColumn($this->getPublicVolumes(), 'id', false);
     }
 
     /**
@@ -246,20 +192,7 @@ class Volumes extends Component
      */
     public function getPublicVolumes(): array
     {
-        if ($this->_publicVolumes !== null) {
-            return $this->_publicVolumes;
-        }
-
-        $this->_publicVolumes = [];
-
-        foreach ($this->getAllVolumes() as $volume) {
-            /** @var Volume $volume */
-            if ($volume->hasUrls) {
-                $this->_publicVolumes[] = $volume;
-            }
-        }
-
-        return $this->_publicVolumes;
+        return $this->_volumes()->where('hasUrls')->all();
     }
 
     /**
@@ -269,7 +202,7 @@ class Volumes extends Component
      */
     public function getTotalVolumes(): int
     {
-        return count($this->getAllVolumeIds());
+        return count($this->getAllVolumes());
     }
 
     /**
@@ -279,7 +212,25 @@ class Volumes extends Component
      */
     public function getTotalViewableVolumes(): int
     {
-        return count($this->getViewableVolumeIds());
+        return count($this->getViewableVolumes());
+    }
+
+    /**
+     * Returns a memoizable array of all volumes.
+     *
+     * @return MemoizableArray<VolumeInterface>
+     */
+    private function _volumes(): MemoizableArray
+    {
+        if ($this->_volumes === null) {
+            $volumes = [];
+            foreach ($this->_createVolumeQuery()->all() as $result) {
+                $volumes[] = $this->createVolume($result);
+            }
+            $this->_volumes = new MemoizableArray($volumes);
+        }
+
+        return $this->_volumes;
     }
 
     /**
@@ -289,24 +240,7 @@ class Volumes extends Component
      */
     public function getAllVolumes(): array
     {
-        if ($this->_fetchedAllVolumes) {
-            return array_values($this->_volumesById);
-        }
-
-        $this->_volumesById = [];
-        $results = $this->_createVolumeQuery()
-            ->all();
-
-        foreach ($results as $result) {
-            /** @var Volume $volume */
-            $volume = $this->createVolume($result);
-            $this->_volumesById[$volume->id] = $volume;
-            $this->_volumesByHandle[$volume->handle] = $volume;
-        }
-
-        $this->_fetchedAllVolumes = true;
-
-        return array_values($this->_volumesById);
+        return $this->_volumes()->all();
     }
 
     /**
@@ -317,63 +251,102 @@ class Volumes extends Component
      */
     public function getVolumeById(int $volumeId)
     {
-        if ($this->_volumesById !== null && array_key_exists($volumeId, $this->_volumesById)) {
-            return $this->_volumesById[$volumeId];
-        }
-
-        if ($this->_fetchedAllVolumes) {
-            return null;
-        }
-
-        $result = $this->_createVolumeQuery()
-            ->where(['id' => $volumeId])
-            ->one();
-
-        return $this->_volumesById[$volumeId] = $result ? $this->createVolume($result) : null;
+        return $this->_volumes()->firstWhere('id', $volumeId);
     }
 
     /**
-     * Returns a volumn by its handle.
+     * Returns a volume by its UID.
+     *
+     * @param string $volumeUid
+     * @return VolumeInterface|null
+     */
+    public function getVolumeByUid(string $volumeUid)
+    {
+        return $this->_volumes()->firstWhere('uid', $volumeUid, true);
+    }
+
+    /**
+     * Returns a volume by its handle.
      *
      * @param string $handle
      * @return VolumeInterface|null
      */
     public function getVolumeByHandle(string $handle)
     {
-        if ($this->_volumesByHandle !== null && array_key_exists($handle, $this->_volumesByHandle)) {
-            return $this->_volumesByHandle[$handle];
-        }
-
-        if ($this->_fetchedAllVolumes) {
-            return null;
-        }
-
-        $result = $this->_createVolumeQuery()
-            ->where(['handle' => $handle])
-            ->one();
-
-        return $this->_volumesByHandle[$handle] = $result ? $this->createVolume($result) : null;
+        return $this->_volumes()->firstWhere('handle', $handle, true);
     }
 
     /**
-     * Saves an asset volume.
+     * Returns the config for the given volume.
+     *
+     * @param VolumeInterface $volume
+     * @return array
+     * @since 3.5.0
+     */
+    public function createVolumeConfig(VolumeInterface $volume): array
+    {
+        $config = [
+            'name' => $volume->name,
+            'handle' => $volume->handle,
+            'type' => get_class($volume),
+            'hasUrls' => (bool)$volume->hasUrls,
+            'url' => $volume->url,
+            'titleTranslationMethod' => $volume->titleTranslationMethod,
+            'titleTranslationKeyFormat' => $volume->titleTranslationKeyFormat ?: null,
+            'settings' => ProjectConfigHelper::packAssociativeArrays($volume->getSettings()),
+            'sortOrder' => (int)$volume->sortOrder,
+        ];
+
+        if (
+            ($fieldLayout = $volume->getFieldLayout()) &&
+            ($fieldLayoutConfig = $fieldLayout->getConfig())
+        ) {
+            if (!$fieldLayout->uid) {
+                $fieldLayout->uid = $fieldLayout->id ? Db::uidById(Table::FIELDLAYOUTS, $fieldLayout->id) : StringHelper::UUID();
+            }
+            $config['fieldLayouts'] = [
+                $fieldLayout->uid => $fieldLayoutConfig,
+            ];
+        }
+
+        return $config;
+    }
+
+    /**
+     * Creates or updates a volume.
+     *
+     * ---
+     *
+     * ```php
+     * use craft\volumes\Local;
+     *
+     * $volume = new Local([
+     *     'name' => 'Content Images',
+     *     'handle' => 'contentImages',
+     *     'hasUrls' => true,
+     *     'url' => '$CONTENT_IMAGES_URL',
+     *     'path' => '$CONTENT_IMAGES_PATH',
+     * ]);
+     *
+     * if (!Craft::$app->volumes->saveVolume(($volume))) {
+     *     throw new Exception('Couldn’t save volume.');
+     * }
+     * ```
      *
      * @param VolumeInterface $volume the volume to be saved.
      * @param bool $runValidation Whether the volume should be validated
-     * @return bool Whether the field was saved successfully
+     * @return bool Whether the volume was saved successfully
      * @throws \Throwable
      */
-
     public function saveVolume(VolumeInterface $volume, bool $runValidation = true): bool
     {
-        /** @var Volume $volume */
         $isNewVolume = $volume->getIsNew();
 
         // Fire a 'beforeSaveVolume' event
         if ($this->hasEventHandlers(self::EVENT_BEFORE_SAVE_VOLUME)) {
             $this->trigger(self::EVENT_BEFORE_SAVE_VOLUME, new VolumeEvent([
                 'volume' => $volume,
-                'isNew' => $isNewVolume
+                'isNew' => $isNewVolume,
             ]));
         }
 
@@ -386,113 +359,148 @@ class Volumes extends Component
             return false;
         }
 
-        $transaction = Craft::$app->getDb()->beginTransaction();
-        try {
-            $volumeRecord = $this->_getVolumeRecordById($volume->id);
-
-            $volumeRecord->name = $volume->name;
-            $volumeRecord->handle = $volume->handle;
-            $volumeRecord->type = get_class($volume);
-            $volumeRecord->hasUrls = $volume->hasUrls;
-            $volumeRecord->settings = $volume->getSettings();
-            $volumeRecord->fieldLayoutId = $volume->fieldLayoutId;
-
-            if ($volume->hasUrls) {
-                $volumeRecord->url = $volume->url;
-            } else {
-                $volumeRecord->url = null;
-            }
-
-            $fields = Craft::$app->getFields();
-
-            if ($isNewVolume) {
-                // Set the sort order
-                $maxSortOrder = (new Query())
-                    ->from(['{{%volumes}}'])
-                    ->max('[[sortOrder]]');
-
-                $volumeRecord->sortOrder = $maxSortOrder + 1;
-            }
-
-            // Save the field layout
-            $fieldLayout = $volume->getFieldLayout();
-            $fields->saveLayout($fieldLayout);
-            $volume->fieldLayoutId = $fieldLayout->id;
-            $volumeRecord->fieldLayoutId = $fieldLayout->id;
-
-            // Save the volume
-            $volumeRecord->save(false);
-
-            if ($isNewVolume) {
-                // Now that we have a volume ID, save it on the model
-                $volume->id = $volumeRecord->id;
-            } else {
-                // Update the top folder's name with the volume's new name
-                $assets = Craft::$app->getAssets();
-                $topFolder = $assets->findFolder([
-                    'volumeId' => $volume->id,
-                    'parentId' => ':empty:'
-                ]);
-
-                if ($topFolder !== null && $topFolder->name != $volume->name) {
-                    $topFolder->name = $volume->name;
-                    $assets->storeFolderRecord($topFolder);
-                }
-            }
-
-            $this->ensureTopFolder($volume);
-
-            $volume->afterSave($isNewVolume);
-
-            $transaction->commit();
-        } catch (\Throwable $e) {
-            $transaction->rollBack();
-
-            throw $e;
+        if ($isNewVolume) {
+            $volume->uid = StringHelper::UUID();
+            $volume->sortOrder = (new Query())
+                    ->from([Table::VOLUMES])
+                    ->max('[[sortOrder]]') + 1;
+        } elseif (!$volume->uid) {
+            $volume->uid = Db::uidById(Table::VOLUMES, $volume->id);
         }
 
-        // Update our caches
-        $this->_volumesById[$volume->id] = $volume;
-        $this->_volumesByHandle[$volume->handle] = $volume;
+        $configPath = self::CONFIG_VOLUME_KEY . '.' . $volume->uid;
+        $configData = $this->createVolumeConfig($volume);
+        Craft::$app->getProjectConfig()->set($configPath, $configData, "Save the “{$volume->handle}” volume");
 
-        if ($this->_viewableVolumeIds !== null && Craft::$app->user->checkPermission('viewVolume:' . $volume->id)) {
-            $this->_viewableVolumeIds[] = $volume->id;
-        }
-
-        // Fire an 'afterSaveVolume' event
-        if ($this->hasEventHandlers(self::EVENT_AFTER_SAVE_VOLUME)) {
-            $this->trigger(self::EVENT_AFTER_SAVE_VOLUME, new VolumeEvent([
-                'volume' => $volume,
-                'isNew' => $isNewVolume
-            ]));
+        if ($isNewVolume) {
+            $volume->id = Db::idByUid(Table::VOLUMES, $volume->uid);
         }
 
         return true;
     }
 
     /**
-     * Reorders asset volumes.
+     * Handle volume change
      *
-     * @param array $volumeIds
-     * @throws \Throwable
-     * @return bool
+     * @param ConfigEvent $event
      */
-    public function reorderVolumes(array $volumeIds): bool
+    public function handleChangedVolume(ConfigEvent $event)
     {
-        $transaction = Craft::$app->getDb()->beginTransaction();
+        $volumeUid = $event->tokenMatches[0];
+        $data = $event->newValue;
 
+        // Make sure fields are processed
+        ProjectConfigHelper::ensureAllFieldsProcessed();
+
+        $transaction = Craft::$app->getDb()->beginTransaction();
         try {
-            foreach ($volumeIds as $volumeOrder => $volumeId) {
-                $volumeRecord = $this->_getVolumeRecordById($volumeId);
-                $volumeRecord->sortOrder = $volumeOrder + 1;
-                $volumeRecord->save();
+            $volumeRecord = $this->_getVolumeRecord($volumeUid, true);
+            $isNewVolume = $volumeRecord->getIsNewRecord();
+
+            $volumeRecord->name = $data['name'];
+            $volumeRecord->handle = $data['handle'];
+            $volumeRecord->type = $data['type'];
+            $volumeRecord->hasUrls = $data['hasUrls'];
+            $volumeRecord->sortOrder = $data['sortOrder'];
+            $volumeRecord->url = !empty($data['url']) ? $data['url'] : null;
+            $volumeRecord->titleTranslationMethod = $data['titleTranslationMethod'] ?? Field::TRANSLATION_METHOD_SITE;
+            $volumeRecord->titleTranslationKeyFormat = $data['titleTranslationKeyFormat'] ?? null;
+            $volumeRecord->settings = ProjectConfigHelper::unpackAssociativeArrays($data['settings']);
+            $volumeRecord->uid = $volumeUid;
+
+            if (!empty($data['fieldLayouts'])) {
+                // Save the field layout
+                $layout = FieldLayout::createFromConfig(reset($data['fieldLayouts']));
+                $layout->id = $volumeRecord->fieldLayoutId;
+                $layout->type = Asset::class;
+                $layout->uid = key($data['fieldLayouts']);
+                Craft::$app->getFields()->saveLayout($layout, false);
+                $volumeRecord->fieldLayoutId = $layout->id;
+            } elseif ($volumeRecord->fieldLayoutId) {
+                // Delete the field layout
+                Craft::$app->getFields()->deleteLayoutById($volumeRecord->fieldLayoutId);
+                $volumeRecord->fieldLayoutId = null;
+            }
+
+            // Save the volume
+            if ($wasTrashed = (bool)$volumeRecord->dateDeleted) {
+                $volumeRecord->restore();
+            } else {
+                $volumeRecord->save(false);
+            }
+
+            $assetsService = Craft::$app->getAssets();
+            $rootFolder = $assetsService->findFolder([
+                'volumeId' => $volumeRecord->id,
+                'parentId' => ':empty:',
+            ]);
+
+            if ($rootFolder === null) {
+                $rootFolderRecord = new VolumeFolder([
+                    'volumeId' => $volumeRecord->id,
+                    'parentId' => null,
+                    'path' => '',
+                    'name' => $volumeRecord->name,
+                ]);
+
+                $rootFolderRecord->save();
+            } else {
+                $rootFolder->name = $volumeRecord->name;
+                $assetsService->storeFolderRecord($rootFolder);
             }
 
             $transaction->commit();
         } catch (\Throwable $e) {
             $transaction->rollBack();
-
             throw $e;
+        }
+
+        // Clear caches
+        $this->_volumes = null;
+
+        $volume = $this->getVolumeById($volumeRecord->id);
+        $volume->afterSave($isNewVolume);
+
+        if ($wasTrashed) {
+            // Restore the assets that were deleted with the volume
+            $assets = Asset::find()
+                ->volumeId($volumeRecord->id)
+                ->trashed()
+                ->andWhere(['assets.deletedWithVolume' => true])
+                ->all();
+            Craft::$app->getElements()->restoreElements($assets);
+        }
+
+        // Fire an 'afterSaveVolume' event
+        if ($this->hasEventHandlers(self::EVENT_AFTER_SAVE_VOLUME)) {
+            $this->trigger(self::EVENT_AFTER_SAVE_VOLUME, new VolumeEvent([
+                'volume' => $this->getVolumeById($volumeRecord->id),
+                'isNew' => $isNewVolume,
+            ]));
+        }
+
+        // Invalidate asset caches
+        Craft::$app->getElements()->invalidateCachesForElementType(Asset::class);
+    }
+
+    /**
+     * Reorders asset volumes.
+     *
+     * @param array $volumeIds
+     * @return bool
+     * @throws \Throwable
+     */
+    public function reorderVolumes(array $volumeIds): bool
+    {
+        $projectConfig = Craft::$app->getProjectConfig();
+
+        $uidsByIds = Db::uidsByIds(Table::VOLUMES, $volumeIds);
+
+        foreach ($volumeIds as $volumeOrder => $volumeId) {
+            if (!empty($uidsByIds[$volumeId])) {
+                $volumeUid = $uidsByIds[$volumeId];
+                $projectConfig->set(self::CONFIG_VOLUME_KEY . '.' . $volumeUid . '.sortOrder', $volumeOrder + 1, "Reorder volumes");
+            }
         }
 
         return true;
@@ -503,11 +511,18 @@ class Volumes extends Component
      *
      * @param string $handle The volume handle
      * @return array|null
+     * @deprecated in 3.5.8. [Environment variables](https://craftcms.com/docs/3.x/config/#environmental-configuration) or [dependency injection](https://craftcms.com/knowledge-base/using-local-volumes-for-development)
+     * should be used instead.
      */
     public function getVolumeOverrides(string $handle)
     {
         if ($this->_overrides === null) {
             $this->_overrides = Craft::$app->getConfig()->getConfigFromFile('volumes');
+            if (!empty($this->_overrides)) {
+                Craft::$app->getDeprecator()->log('volumes.php', 'Support for overriding volume configs in `config/volumes.php` has been ' .
+                    'deprecated. [Environment variables](https://craftcms.com/docs/3.x/config/#environmental-configuration) or ' .
+                    '[dependency injection](https://craftcms.com/knowledge-base/using-local-volumes-for-development) should be used instead.');
+            }
         }
 
         return $this->_overrides[$handle] ?? null;
@@ -525,6 +540,11 @@ class Volumes extends Component
             $config = ['type' => $config];
         }
 
+        // JSON-decode the settings now so we don't have to do it twice in the event we need to remove the `path`
+        if (isset($config['settings']) && is_string($config['settings'])) {
+            $config['settings'] = Json::decode($config['settings']);
+        }
+
         // Are they overriding any settings?
         if (!empty($config['handle']) && ($override = $this->getVolumeOverrides($config['handle'])) !== null) {
             // Save a reference to the original config in case the volume type is missing
@@ -535,8 +555,19 @@ class Volumes extends Component
         }
 
         try {
-            /** @var Volume $volume */
             $volume = ComponentHelper::createComponent($config, VolumeInterface::class);
+        } catch (UnknownPropertyException $e) {
+            // Special case for Local volumes that are being converted to something else
+            // https://github.com/craftcms/cms/issues/5277
+            if (
+                isset($originalConfig) &&
+                $originalConfig['type'] === Local::class &&
+                isset($originalConfig['settings']['path'])
+            ) {
+                unset($originalConfig['settings']['path']);
+                return $this->createVolume($originalConfig);
+            }
+            throw $e;
         } catch (MissingComponentException $e) {
             // Revert to the original config if it was overridden
             $config = $originalConfig ?? $config;
@@ -559,11 +590,10 @@ class Volumes extends Component
      */
     public function ensureTopFolder(VolumeInterface $volume): int
     {
-        /** @var Volume $volume */
         $folder = VolumeFolder::findOne(
             [
                 'name' => $volume->name,
-                'volumeId' => $volume->id
+                'volumeId' => $volume->id,
             ]
         );
 
@@ -583,8 +613,8 @@ class Volumes extends Component
      * Deletes an asset volume by its ID.
      *
      * @param int $volumeId
-     * @throws \Throwable
      * @return bool
+     * @throws \Throwable
      */
     public function deleteVolumeById(int $volumeId): bool
     {
@@ -601,16 +631,15 @@ class Volumes extends Component
      * Deletes an asset volume.
      *
      * @param VolumeInterface $volume The volume to delete
-     * @throws \Throwable
      * @return bool
+     * @throws \Throwable
      */
     public function deleteVolume(VolumeInterface $volume): bool
     {
-        /** @var Volume $volume */
         // Fire a 'beforeDeleteVolume' event
         if ($this->hasEventHandlers(self::EVENT_BEFORE_DELETE_VOLUME)) {
             $this->trigger(self::EVENT_BEFORE_DELETE_VOLUME, new VolumeEvent([
-                'volume' => $volume
+                'volume' => $volume,
             ]));
         }
 
@@ -618,27 +647,60 @@ class Volumes extends Component
             return false;
         }
 
+        Craft::$app->getProjectConfig()->remove(self::CONFIG_VOLUME_KEY . '.' . $volume->uid, "Delete the “{$volume->handle}” volume");
+        return true;
+    }
+
+    /**
+     * Handle volume getting deleted
+     *
+     * @param ConfigEvent $event
+     */
+    public function handleDeletedVolume(ConfigEvent $event)
+    {
+        $uid = $event->tokenMatches[0];
+        $volumeRecord = $this->_getVolumeRecord($uid);
+
+        if ($volumeRecord->getIsNewRecord()) {
+            return;
+        }
+
+        $volume = $this->getVolumeById($volumeRecord->id);
+
+        // Fire a 'beforeApplyVolumeDelete' event
+        if ($this->hasEventHandlers(self::EVENT_BEFORE_APPLY_VOLUME_DELETE)) {
+            $this->trigger(self::EVENT_BEFORE_APPLY_VOLUME_DELETE, new VolumeEvent([
+                'volume' => $volume,
+            ]));
+        }
+
         $db = Craft::$app->getDb();
         $transaction = $db->beginTransaction();
 
         try {
+            $volume->beforeApplyDelete();
+
             // Delete the assets
             $assets = Asset::find()
                 ->anyStatus()
-                ->volumeId($volume->id)
+                ->volumeId($volumeRecord->id)
                 ->all();
+            $elementsService = Craft::$app->getElements();
 
             foreach ($assets as $asset) {
+                $asset->deletedWithVolume = true;
                 $asset->keepFileOnDelete = true;
-                Craft::$app->getElements()->deleteElement($asset);
+                $elementsService->deleteElement($asset);
             }
 
-            // Delete the field layout.
-            Craft::$app->getFields()->deleteLayoutById($volume->fieldLayoutId);
+            // Delete the field layout
+            if ($volumeRecord->fieldLayoutId) {
+                Craft::$app->getFields()->deleteLayoutById($volumeRecord->fieldLayoutId);
+            }
 
-            // Nuke the asset volume.
+            // Delete the volume
             $db->createCommand()
-                ->delete('{{%volumes}}', ['id' => $volume->id])
+                ->softDelete(Table::VOLUMES, ['id' => $volumeRecord->id])
                 ->execute();
 
             $volume->afterDelete();
@@ -646,22 +708,29 @@ class Volumes extends Component
             $transaction->commit();
         } catch (\Throwable $e) {
             $transaction->rollBack();
-
             throw $e;
         }
+
+        // Clear caches
+        $this->_volumes = null;
 
         // Fire an 'afterDeleteVolume' event
         if ($this->hasEventHandlers(self::EVENT_AFTER_DELETE_VOLUME)) {
             $this->trigger(self::EVENT_AFTER_DELETE_VOLUME, new VolumeEvent([
-                'volume' => $volume
+                'volume' => $volume,
             ]));
         }
 
-        return true;
+        // Invalidate asset caches
+        Craft::$app->getElements()->invalidateCachesForElementType(Asset::class);
     }
 
-    // Private Methods
-    // =========================================================================
+    /**
+     * @deprecated in 3.7.51. Unused fields will be pruned automatically as field layouts are resaved.
+     */
+    public function pruneDeletedField()
+    {
+    }
 
     /**
      * Returns a DbCommand object prepped for retrieving volumes.
@@ -670,7 +739,7 @@ class Volumes extends Component
      */
     private function _createVolumeQuery(): Query
     {
-        return (new Query())
+        $query = (new Query())
             ->select([
                 'id',
                 'dateCreated',
@@ -683,30 +752,37 @@ class Volumes extends Component
                 'fieldLayoutId',
                 'type',
                 'settings',
+                'uid',
             ])
-            ->from(['{{%volumes}}'])
+            ->from([Table::VOLUMES])
             ->orderBy(['sortOrder' => SORT_ASC]);
+
+        // todo: remove schema version conditions after next beakpoint
+        $schemaVersion = Craft::$app->getInstalledSchemaVersion();
+        if (version_compare($schemaVersion, '3.1.19', '>=')) {
+            $query->where(['dateDeleted' => null]);
+        }
+        if (version_compare($schemaVersion, '3.6.0', '>=')) {
+            $query->addSelect([
+                'titleTranslationMethod',
+                'titleTranslationKeyFormat',
+            ]);
+        }
+
+        return $query;
     }
 
     /**
-     * Gets a volume's record.
+     * Gets a volume's record by uid.
      *
-     * @param int|null $volumeId
-     * @throws VolumeException If the volume does not exist.
+     * @param string $uid
+     * @param bool $withTrashed Whether to include trashed volumes in search
      * @return AssetVolumeRecord
      */
-    private function _getVolumeRecordById(int $volumeId = null): AssetVolumeRecord
+    private function _getVolumeRecord(string $uid, bool $withTrashed = false): AssetVolumeRecord
     {
-        if ($volumeId !== null) {
-            $volumeRecord = AssetVolumeRecord::findOne(['id' => $volumeId]);
-
-            if (!$volumeRecord) {
-                throw new VolumeException(Craft::t('app', 'No volume exists with the ID “{id}”.', ['id' => $volumeId]));
-            }
-        } else {
-            $volumeRecord = new AssetVolumeRecord();
-        }
-
-        return $volumeRecord;
+        $query = $withTrashed ? AssetVolumeRecord::findWithTrashed() : AssetVolumeRecord::find();
+        $query->andWhere(['uid' => $uid]);
+        return $query->one() ?? new AssetVolumeRecord();
     }
 }

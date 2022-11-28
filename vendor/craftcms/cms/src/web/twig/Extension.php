@@ -9,12 +9,20 @@ namespace craft\web\twig;
 
 use Craft;
 use craft\base\MissingComponentInterface;
+use craft\base\PluginInterface;
 use craft\elements\Asset;
 use craft\elements\db\ElementQuery;
+use craft\errors\AssetException;
+use craft\helpers\App;
 use craft\helpers\ArrayHelper;
 use craft\helpers\DateTimeHelper;
 use craft\helpers\Db;
 use craft\helpers\FileHelper;
+use craft\helpers\Gql;
+use craft\helpers\Html;
+use craft\helpers\HtmlPurifier;
+use craft\helpers\Json;
+use craft\helpers\Sequence;
 use craft\helpers\StringHelper;
 use craft\helpers\Template as TemplateHelper;
 use craft\helpers\UrlHelper;
@@ -22,7 +30,10 @@ use craft\i18n\Locale;
 use craft\web\twig\nodevisitors\EventTagAdder;
 use craft\web\twig\nodevisitors\EventTagFinder;
 use craft\web\twig\nodevisitors\GetAttrAdjuster;
+use craft\web\twig\nodevisitors\Profiler;
 use craft\web\twig\tokenparsers\CacheTokenParser;
+use craft\web\twig\tokenparsers\DdTokenParser;
+use craft\web\twig\tokenparsers\DeprecatedTokenParser;
 use craft\web\twig\tokenparsers\ExitTokenParser;
 use craft\web\twig\tokenparsers\HeaderTokenParser;
 use craft\web\twig\tokenparsers\HookTokenParser;
@@ -33,51 +44,55 @@ use craft\web\twig\tokenparsers\RedirectTokenParser;
 use craft\web\twig\tokenparsers\RegisterResourceTokenParser;
 use craft\web\twig\tokenparsers\RequireAdminTokenParser;
 use craft\web\twig\tokenparsers\RequireEditionTokenParser;
+use craft\web\twig\tokenparsers\RequireGuestTokenParser;
 use craft\web\twig\tokenparsers\RequireLoginTokenParser;
 use craft\web\twig\tokenparsers\RequirePermissionTokenParser;
 use craft\web\twig\tokenparsers\SwitchTokenParser;
+use craft\web\twig\tokenparsers\TagTokenParser;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\View;
 use DateInterval;
 use DateTime;
 use DateTimeInterface;
 use DateTimeZone;
-use enshrined\svgSanitize\Sanitizer;
+use Traversable;
+use Twig\Environment as TwigEnvironment;
+use Twig\Error\RuntimeError;
+use Twig\Extension\AbstractExtension;
+use Twig\Extension\GlobalsInterface;
+use Twig\TwigFilter;
+use Twig\TwigFunction;
+use Twig\TwigTest;
 use yii\base\InvalidArgumentException;
 use yii\base\InvalidConfigException;
+use yii\db\Expression;
 use yii\helpers\Markdown;
 
 /**
  * Class Extension
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
-class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterface
+class Extension extends AbstractExtension implements GlobalsInterface
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var View|null
      */
     protected $view;
 
     /**
-     * @var Environment|null
+     * @var TwigEnvironment|null
      */
     protected $environment;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * Constructor
      *
      * @param View $view
-     * @param Environment $environment
+     * @param TwigEnvironment $environment
      */
-    public function __construct(View $view, Environment $environment)
+    public function __construct(View $view, TwigEnvironment $environment)
     {
         $this->view = $view;
         $this->environment = $environment;
@@ -89,6 +104,7 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     public function getNodeVisitors()
     {
         return [
+            new Profiler(),
             new GetAttrAdjuster(),
             new EventTagFinder(),
             new EventTagAdder(),
@@ -96,25 +112,36 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     }
 
     /**
-     * Returns the token parser instances to add to the existing list.
-     *
-     * @return array An array of Twig_TokenParserInterface or Twig_TokenParserBrokerInterface instances
+     * @inheritdoc
      */
     public function getTokenParsers(): array
     {
         return [
             new CacheTokenParser(),
+            new DeprecatedTokenParser(),
+            new DdTokenParser(),
             new ExitTokenParser(),
             new HeaderTokenParser(),
             new HookTokenParser(),
-            new RegisterResourceTokenParser('css', 'registerCss', [
+            new RegisterResourceTokenParser('css', TemplateHelper::class . '::css', [
                 'allowTagPair' => true,
                 'allowOptions' => true,
             ]),
-            new RegisterResourceTokenParser('js', 'registerJs', [
+            new RegisterResourceTokenParser('html', 'Craft::$app->getView()->registerHtml', [
+                'allowTagPair' => true,
+                'allowPosition' => true,
+            ]),
+            new RegisterResourceTokenParser('js', TemplateHelper::class . '::js', [
                 'allowTagPair' => true,
                 'allowPosition' => true,
                 'allowRuntimePosition' => true,
+                'allowOptions' => true,
+            ]),
+            new RegisterResourceTokenParser('script', 'Craft::$app->getView()->registerScript', [
+                'allowTagPair' => true,
+                'allowPosition' => true,
+                'allowOptions' => true,
+                'defaultPosition' => View::POS_END,
             ]),
             new NamespaceTokenParser(),
             new NavTokenParser(),
@@ -123,133 +150,190 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
             new RequireAdminTokenParser(),
             new RequireEditionTokenParser(),
             new RequireLoginTokenParser(),
+            new RequireGuestTokenParser(),
             new RequirePermissionTokenParser(),
             new SwitchTokenParser(),
+            new TagTokenParser(),
 
             // Deprecated tags
-            new RegisterResourceTokenParser('includeCss', 'registerCss', [
+            new RegisterResourceTokenParser('includeCss', 'Craft::$app->getView()->registerCss', [
                 'allowTagPair' => true,
                 'allowOptions' => true,
                 'newCode' => '{% css %}',
             ]),
-            new RegisterResourceTokenParser('includeHiResCss', 'registerHiResCss', [
+            new RegisterResourceTokenParser('includeHiResCss', 'Craft::$app->getView()->registerHiResCss', [
                 'allowTagPair' => true,
                 'allowOptions' => true,
                 'newCode' => '{% css %}',
             ]),
-            new RegisterResourceTokenParser('includeCssFile', 'registerCssFile', [
+            new RegisterResourceTokenParser('includeCssFile', 'Craft::$app->getView()->registerCssFile', [
                 'allowOptions' => true,
-                'newCode' => '{% do view.registerCssFile("/url/to/file.css") %}',
+                'newCode' => '{% css "/url/to/file.css" %}',
             ]),
-            new RegisterResourceTokenParser('includeJs', 'registerJs', [
+            new RegisterResourceTokenParser('includeJs', 'Craft::$app->getView()->registerJs', [
                 'allowTagPair' => true,
                 'allowPosition' => true,
                 'allowRuntimePosition' => true,
                 'newCode' => '{% js %}',
             ]),
-            new RegisterResourceTokenParser('includeJsFile', 'registerJsFile', [
+            new RegisterResourceTokenParser('includeJsFile', 'Craft::$app->getView()->registerJsFile', [
                 'allowPosition' => true,
                 'allowOptions' => true,
-                'newCode' => '{% do view.registerJsFile("/url/to/file.js") %}',
+                'newCode' => '{% js "/url/to/file.js" %}',
             ]),
 
-            new RegisterResourceTokenParser('includecss', 'registerCss', [
+            new RegisterResourceTokenParser('includecss', 'Craft::$app->getView()->registerCss', [
                 'allowTagPair' => true,
                 'allowOptions' => true,
                 'newCode' => '{% css %}',
             ]),
-            new RegisterResourceTokenParser('includehirescss', 'registerHiResCss', [
+            new RegisterResourceTokenParser('includehirescss', 'Craft::$app->getView()->registerHiResCss', [
                 'allowTagPair' => true,
                 'allowOptions' => true,
                 'newCode' => '{% css %}',
             ]),
-            new RegisterResourceTokenParser('includecssfile', 'registerCssFile', [
+            new RegisterResourceTokenParser('includecssfile', 'Craft::$app->getView()->registerCssFile', [
                 'allowOptions' => true,
-                'newCode' => '{% do view.registerCssFile("/url/to/file.css") %}',
+                'newCode' => '{% css "/url/to/file.css" %}',
             ]),
-            new RegisterResourceTokenParser('includejs', 'registerJs', [
+            new RegisterResourceTokenParser('includejs', 'Craft::$app->getView()->registerJs', [
                 'allowTagPair' => true,
                 'allowPosition' => true,
                 'allowRuntimePosition' => true,
                 'newCode' => '{% js %}',
             ]),
-            new RegisterResourceTokenParser('includejsfile', 'registerJsFile', [
+            new RegisterResourceTokenParser('includejsfile', 'Craft::$app->getView()->registerJsFile', [
                 'allowPosition' => true,
                 'allowOptions' => true,
-                'newCode' => '{% do view.registerJsFile("/url/to/file.js") %}',
+                'newCode' => '{% js "/url/to/file.js" %}',
             ]),
         ];
     }
 
     /**
-     * Returns a list of filters to add to the existing list.
-     *
-     * @return \Twig_SimpleFilter[] An array of filters
+     * @inheritdoc
      */
     public function getFilters(): array
     {
-        $formatter = Craft::$app->getFormatter();
         $security = Craft::$app->getSecurity();
 
         return [
-            new \Twig_SimpleFilter('atom', [$this, 'atomFilter'], ['needs_environment' => true]),
-            new \Twig_SimpleFilter('camel', [$this, 'camelFilter']),
-            new \Twig_SimpleFilter('column', [ArrayHelper::class, 'getColumn']),
-            new \Twig_SimpleFilter('currency', [$formatter, 'asCurrency']),
-            new \Twig_SimpleFilter('date', [$this, 'dateFilter'], ['needs_environment' => true]),
-            new \Twig_SimpleFilter('datetime', [$this, 'datetimeFilter'], ['needs_environment' => true]),
-            new \Twig_SimpleFilter('duration', [DateTimeHelper::class, 'humanDurationFromInterval']),
-            new \Twig_SimpleFilter('encenc', [$this, 'encencFilter']),
-            new \Twig_SimpleFilter('filesize', [$formatter, 'asShortSize']),
-            new \Twig_SimpleFilter('filter', 'array_filter'),
-            new \Twig_SimpleFilter('filterByValue', [ArrayHelper::class, 'filterByValue']),
-            new \Twig_SimpleFilter('group', [$this, 'groupFilter']),
-            new \Twig_SimpleFilter('hash', [$security, 'hashData']),
-            new \Twig_SimpleFilter('id', [$this->view, 'formatInputId']),
-            new \Twig_SimpleFilter('index', [ArrayHelper::class, 'index']),
-            new \Twig_SimpleFilter('indexOf', [$this, 'indexOfFilter']),
-            new \Twig_SimpleFilter('intersect', 'array_intersect'),
-            new \Twig_SimpleFilter('json_encode', [$this, 'jsonEncodeFilter']),
-            new \Twig_SimpleFilter('kebab', [$this, 'kebabFilter']),
-            new \Twig_SimpleFilter('lcfirst', [$this, 'lcfirstFilter']),
-            new \Twig_SimpleFilter('literal', [$this, 'literalFilter']),
-            new \Twig_SimpleFilter('markdown', [$this, 'markdownFilter']),
-            new \Twig_SimpleFilter('md', [$this, 'markdownFilter']),
-            new \Twig_SimpleFilter('multisort', [$this, 'multisortFilter']),
-            new \Twig_SimpleFilter('namespace', [$this->view, 'namespaceInputs']),
-            new \Twig_SimpleFilter('ns', [$this->view, 'namespaceInputs']),
-            new \Twig_SimpleFilter('namespaceInputName', [$this->view, 'namespaceInputName']),
-            new \Twig_SimpleFilter('namespaceInputId', [$this->view, 'namespaceInputId']),
-            new \Twig_SimpleFilter('number', [$formatter, 'asDecimal']),
-            new \Twig_SimpleFilter('parseRefs', [$this, 'parseRefsFilter']),
-            new \Twig_SimpleFilter('pascal', [$this, 'pascalFilter']),
-            new \Twig_SimpleFilter('percentage', [$formatter, 'asPercent']),
-            new \Twig_SimpleFilter('replace', [$this, 'replaceFilter']),
-            new \Twig_SimpleFilter('rss', [$this, 'rssFilter'], ['needs_environment' => true]),
-            new \Twig_SimpleFilter('snake', [$this, 'snakeFilter']),
-            new \Twig_SimpleFilter('time', [$this, 'timeFilter'], ['needs_environment' => true]),
-            new \Twig_SimpleFilter('timestamp', [$formatter, 'asTimestamp']),
-            new \Twig_SimpleFilter('translate', [$this, 'translateFilter']),
-            new \Twig_SimpleFilter('t', [$this, 'translateFilter']),
-            new \Twig_SimpleFilter('ucfirst', [$this, 'ucfirstFilter']),
-            new \Twig_SimpleFilter('ucwords', 'ucwords'),
-            new \Twig_SimpleFilter('unique', 'array_unique'),
-            new \Twig_SimpleFilter('values', 'array_values'),
-            new \Twig_SimpleFilter('without', [$this, 'withoutFilter']),
+            new TwigFilter('append', [$this, 'appendFilter'], ['is_safe' => ['html']]),
+            new TwigFilter('ascii', [StringHelper::class, 'toAscii']),
+            new TwigFilter('atom', [$this, 'atomFilter'], ['needs_environment' => true]),
+            new TwigFilter('attr', [$this, 'attrFilter'], ['is_safe' => ['html']]),
+            new TwigFilter('camel', [$this, 'camelFilter']),
+            new TwigFilter('column', [ArrayHelper::class, 'getColumn']),
+            new TwigFilter('contains', [ArrayHelper::class, 'contains']),
+            new TwigFilter('currency', [$this, 'currencyFilter']),
+            new TwigFilter('date', [$this, 'dateFilter'], ['needs_environment' => true]),
+            new TwigFilter('datetime', [$this, 'datetimeFilter'], ['needs_environment' => true]),
+            new TwigFilter('diff', 'array_diff'),
+            new TwigFilter('duration', [DateTimeHelper::class, 'humanDurationFromInterval']),
+            new TwigFilter('encenc', [$this, 'encencFilter']),
+            new TwigFilter('explodeClass', [Html::class, 'explodeClass']),
+            new TwigFilter('explodeStyle', [Html::class, 'explodeStyle']),
+            new TwigFilter('filesize', [$this, 'filesizeFilter']),
+            new TwigFilter('filter', [$this, 'filterFilter'], ['needs_environment' => true]),
+            new TwigFilter('filterByValue', [ArrayHelper::class, 'where'], ['deprecated' => '3.5.0', 'alternative' => 'where']),
+            new TwigFilter('group', [$this, 'groupFilter']),
+            new TwigFilter('hash', [$security, 'hashData']),
+            new TwigFilter('httpdate', [$this, 'httpdateFilter'], ['needs_environment' => true]),
+            new TwigFilter('id', [Html::class, 'id']),
+            new TwigFilter('index', [ArrayHelper::class, 'index']),
+            new TwigFilter('indexOf', [$this, 'indexOfFilter']),
+            new TwigFilter('intersect', 'array_intersect'),
+            new TwigFilter('json_encode', [$this, 'jsonEncodeFilter']),
+            new TwigFilter('json_decode', [Json::class, 'decode']),
+            new TwigFilter('kebab', [$this, 'kebabFilter']),
+            new TwigFilter('lcfirst', [$this, 'lcfirstFilter']),
+            new TwigFilter('literal', [$this, 'literalFilter']),
+            new TwigFilter('markdown', [$this, 'markdownFilter'], ['is_safe' => ['html']]),
+            new TwigFilter('md', [$this, 'markdownFilter'], ['is_safe' => ['html']]),
+            new TwigFilter('merge', [$this, 'mergeFilter']),
+            new TwigFilter('multisort', [$this, 'multisortFilter']),
+            new TwigFilter('namespace', [$this->view, 'namespaceInputs'], ['is_safe' => ['html']]),
+            new TwigFilter('namespaceAttributes', [Html::class, 'namespaceAttributes'], ['is_safe' => ['html']]),
+            new TwigFilter('ns', [$this->view, 'namespaceInputs'], ['is_safe' => ['html']]),
+            new TwigFilter('namespaceInputName', [$this->view, 'namespaceInputName']),
+            new TwigFilter('namespaceInputId', [$this->view, 'namespaceInputId']),
+            new TwigFilter('number', [$this, 'numberFilter']),
+            new TwigFilter('parseAttr', [$this, 'parseAttrFilter']),
+            new TwigFilter('parseRefs', [$this, 'parseRefsFilter'], ['is_safe' => ['html']]),
+            new TwigFilter('pascal', [$this, 'pascalFilter']),
+            new TwigFilter('percentage', [$this, 'percentageFilter']),
+            new TwigFilter('prepend', [$this, 'prependFilter'], ['is_safe' => ['html']]),
+            new TwigFilter('purify', [$this, 'purifyFilter'], ['is_safe' => ['html']]),
+            new TwigFilter('push', [$this, 'pushFilter']),
+            new TwigFilter('removeClass', [$this, 'removeClassFilter'], ['is_safe' => ['html']]),
+            new TwigFilter('replace', [$this, 'replaceFilter']),
+            new TwigFilter('rss', [$this, 'rssFilter'], ['needs_environment' => true]),
+            new TwigFilter('snake', [$this, 'snakeFilter']),
+            new TwigFilter('sort', [$this, 'sortFilter'], ['needs_environment' => true]),
+            new TwigFilter('time', [$this, 'timeFilter'], ['needs_environment' => true]),
+            new TwigFilter('timestamp', [$this, 'timestampFilter']),
+            new TwigFilter('translate', [$this, 'translateFilter']),
+            new TwigFilter('truncate', [$this, 'truncateFilter']),
+            new TwigFilter('t', [$this, 'translateFilter']),
+            new TwigFilter('ucfirst', [$this, 'ucfirstFilter']),
+            new TwigFilter('ucwords', [$this, 'ucwordsFilter'], ['needs_environment' => true]),
+            new TwigFilter('unique', 'array_unique'),
+            new TwigFilter('unshift', [$this, 'unshiftFilter']),
+            new TwigFilter('values', 'array_values'),
+            new TwigFilter('where', [ArrayHelper::class, 'where']),
+            new TwigFilter('widont', [$this, 'widontFilter'], ['is_safe' => ['html']]),
+            new TwigFilter('without', [$this, 'withoutFilter']),
+            new TwigFilter('withoutKey', [$this, 'withoutKeyFilter']),
         ];
     }
 
     /**
-     * {@inheritdoc}
+     * @inheritdoc
      */
     public function getTests()
     {
         return [
-            new \Twig_SimpleTest('instance of', function($obj, $class) {
+            new TwigTest('array', function($obj): bool {
+                return is_array($obj);
+            }),
+            new TwigTest('boolean', function($obj): bool {
+                return is_bool($obj);
+            }),
+            new TwigTest('callable', function($obj): bool {
+                return is_callable($obj);
+            }),
+            new TwigTest('countable', function($obj): bool {
+                if (!function_exists('is_countable')) {
+                    return is_array($obj) || $obj instanceof \Countable;
+                }
+                return is_countable($obj);
+            }),
+            new TwigTest('float', function($obj): bool {
+                return is_float($obj);
+            }),
+            new TwigTest('instance of', function($obj, $class) {
                 return $obj instanceof $class;
             }),
-            new \Twig_SimpleTest('missing', function($obj) {
+            new TwigTest('integer', function($obj): bool {
+                return is_int($obj);
+            }),
+            new TwigTest('missing', function($obj) {
                 return $obj instanceof MissingComponentInterface;
+            }),
+            new TwigTest('numeric', function($obj): bool {
+                return is_numeric($obj);
+            }),
+            new TwigTest('object', function($obj): bool {
+                return is_object($obj);
+            }),
+            new TwigTest('resource', function($obj): bool {
+                return is_resource($obj);
+            }),
+            new TwigTest('scalar', function($obj): bool {
+                return is_scalar($obj);
+            }),
+            new TwigTest('string', function($obj): bool {
+                return is_string($obj);
             }),
         ];
     }
@@ -274,7 +358,7 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
             /** @noinspection CallableParameterUseCaseInTypeContextInspection */
             $params = $category;
             $category = 'site';
-        } else if ($category === null) {
+        } elseif ($category === null) {
             $category = 'site';
         }
 
@@ -290,6 +374,26 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     }
 
     /**
+     * Truncates the string to a given length, while ensuring that it does not split words.
+     *
+     * @param string $string The string to truncate
+     * @param int $length The maximum number of characters for the truncated string
+     * @param string $suffix The string that should be appended to `$string`, if it must be truncated
+     * @param bool $splitSingleWord Whether to split up `$string` if it only contains one word
+     * @return string The truncated string
+     * @since 3.5.10
+     */
+    public function truncateFilter(string $string, int $length, string $suffix = '…', bool $splitSingleWord = true): string
+    {
+        // Override default behavior where the substring would be returned in this case
+        if ($string === '' || $length <= 0) {
+            return $string;
+        }
+
+        return StringHelper::safeTruncate($string, $length, $suffix, $splitSingleWord);
+    }
+
+    /**
      * Uppercases the first character of a multibyte string.
      *
      * @param mixed $string The multibyte string.
@@ -298,6 +402,22 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     public function ucfirstFilter($string): string
     {
         return StringHelper::upperCaseFirst((string)$string);
+    }
+
+    /**
+     * Uppercases the first character of each word in a string.
+     *
+     * @param TwigEnvironment $env
+     * @param string $string
+     * @return string
+     */
+    public function ucwordsFilter(TwigEnvironment $env, string $string): string
+    {
+        Craft::$app->getDeprecator()->log('ucwords', 'The `|ucwords` filter has been deprecated. Use `|title` instead.');
+        if (($charset = $env->getCharset()) !== null) {
+            return mb_convert_case($string, MB_CASE_TITLE, $charset);
+        }
+        return ucwords(strtolower($string));
     }
 
     /**
@@ -358,6 +478,140 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
         return StringHelper::toSnakeCase((string)$string);
     }
 
+    /**
+     * Sorts an array.
+     *
+     * @param TwigEnvironment $env
+     * @param array|Traversable $array
+     * @param string|callable|null $arrow
+     * @return array
+     * @throws RuntimeError
+     * @since 3.7.60
+     */
+    public function sortFilter(TwigEnvironment $env, $array, $arrow = null): array
+    {
+        if (is_string($arrow) && strtolower($arrow) === 'system') {
+            throw new RuntimeError('The sort filter doesn\'t support sorting by system().');
+        }
+
+        return twig_sort_filter($env, $array, $arrow);
+    }
+
+
+    /**
+     * Formats the value as a currency number.
+     *
+     * @param mixed $value
+     * @param string|null $currency
+     * @param array $options
+     * @param array $textOptions
+     * @param bool $stripZeros
+     * @return string
+     * @since 3.6.0
+     */
+    public function currencyFilter($value, ?string $currency = null, array $options = [], array $textOptions = [], bool $stripZeros = false): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        try {
+            return Craft::$app->getFormatter()->asCurrency($value, $currency, $options, $textOptions, $stripZeros);
+        } catch (InvalidArgumentException $e) {
+            return $value;
+        }
+    }
+
+    /**
+     * Formats the value in bytes as a size in human readable form for example `12 kB`.
+     *
+     * @param mixed $value
+     * @param int|null $decimals
+     * @param array $options
+     * @param array $textOptions
+     * @return string
+     * @since 3.6.0
+     */
+    public function filesizeFilter($value, ?int $decimals = null, array $options = [], array $textOptions = []): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        try {
+            return Craft::$app->getFormatter()->asShortSize($value, $decimals, $options, $textOptions);
+        } catch (InvalidArgumentException $e) {
+            return $value;
+        }
+    }
+
+    /**
+     * Formats the value as a decimal number.
+     *
+     * @param $value
+     * @param int|null $decimals
+     * @param array $options
+     * @param array $textOptions
+     * @return string
+     * @since 3.6.0
+     */
+    public function numberFilter($value, ?int $decimals = null, array $options = [], array $textOptions = []): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        try {
+            return Craft::$app->getFormatter()->asDecimal($value, $decimals, $options, $textOptions);
+        } catch (InvalidArgumentException $e) {
+            return $value;
+        }
+    }
+
+    /**
+     * Formats the value as a percent number with "%" sign.
+     *
+     * @param $value
+     * @param int|null $decimals
+     * @param array $options
+     * @param array $textOptions
+     * @return string
+     * @since 3.6.0
+     */
+    public function percentageFilter($value, ?int $decimals = null, array $options = [], array $textOptions = []): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        try {
+            return Craft::$app->getFormatter()->asPercent($value, $decimals, $options, $textOptions);
+        } catch (InvalidArgumentException $e) {
+            return $value;
+        }
+    }
+
+    /**
+     * Formats the value as a human-readable timestamp.
+     *
+     * @param mixed $value
+     * @param string|null $format
+     * @param bool $withPreposition
+     * @return string
+     * @since 3.6.0
+     */
+    public function timestampFilter($value, ?string $format = null, bool $withPreposition = false): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        try {
+            return Craft::$app->getFormatter()->asTimestamp($value, $format, $withPreposition);
+        } catch (InvalidArgumentException $e) {
+            return $value;
+        }
+    }
 
     /**
      * This method will JSON encode a variable. We're overriding Twig's default implementation to set some stricter
@@ -373,7 +627,10 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     public function jsonEncodeFilter($value, int $options = null, int $depth = 512)
     {
         if ($options === null) {
-            if (in_array(Craft::$app->getResponse()->getContentType(), ['text/html', 'application/xhtml+xml'], true)) {
+            if (
+                !Craft::$app->getRequest()->getIsConsoleRequest() &&
+                in_array(Craft::$app->getResponse()->getContentType(), ['text/html', 'application/xhtml+xml'], true)
+            ) {
                 $options = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT;
             } else {
                 $options = 0;
@@ -381,6 +638,18 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
         }
 
         return json_encode($value, $options, $depth);
+    }
+
+    /**
+     * Inserts a non-breaking space between the last two words of a string.
+     *
+     * @param string $string
+     * @return string
+     * @since 3.7.0
+     */
+    public function widontFilter(string $string): string
+    {
+        return Html::widont($string);
     }
 
     /**
@@ -406,17 +675,163 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     }
 
     /**
+     * Returns an array without a certain key.
+     *
+     * @param mixed $arr
+     * @param string|string[] $key
+     * @return array
+     * @since 3.2.0
+     */
+    public function withoutKeyFilter($arr, $key): array
+    {
+        $arr = (array)$arr;
+
+        if (!is_array($key)) {
+            $key = [$key];
+        }
+
+        foreach ($key as $k) {
+            ArrayHelper::remove($arr, $k);
+        }
+
+        return $arr;
+    }
+
+    /**
+     * Parses an HTML tag to find its attributes.
+     *
+     * @param string $tag The HTML tag to parse
+     * @return array The parsed HTML tag attributes
+     * @throws InvalidArgumentException if `$tag` doesn't contain a valid HTML tag
+     * @since 3.4.0
+     */
+    public function parseAttrFilter(string $tag): array
+    {
+        try {
+            return Html::parseTagAttributes($tag, 0, $start, $end, true);
+        } catch (InvalidArgumentException $e) {
+            Craft::warning($e->getMessage(), __METHOD__);
+            return [];
+        }
+    }
+
+    /**
      * Parses a string for reference tags.
      *
      * @param mixed $str
      * @param int|null $siteId
-     * @return \Twig_Markup
+     * @return string
      */
-    public function parseRefsFilter($str, int $siteId = null): \Twig_Markup
+    public function parseRefsFilter($str, int $siteId = null): string
     {
-        $str = Craft::$app->getElements()->parseRefs((string)$str, $siteId);
+        return Craft::$app->getElements()->parseRefs((string)$str, $siteId);
+    }
 
-        return TemplateHelper::raw($str);
+    /**
+     * Prepends HTML to the beginning of given tag.
+     *
+     * @param string $tag The HTML tag that `$html` should be prepended to
+     * @param string $html The HTML to prepend to `$tag`.
+     * @param string|null $ifExists What to do if `$tag` already contains a child of the same type as the element
+     * defined by `$html`. Set to `'keep'` if no action should be taken, or `'replace'` if it should be replaced
+     * by `$tag`.
+     * @return string The modified HTML
+     * @since 3.3.0
+     */
+    public function prependFilter(string $tag, string $html, string $ifExists = null): string
+    {
+        try {
+            return Html::prependToTag($tag, $html, $ifExists);
+        } catch (InvalidArgumentException $e) {
+            Craft::warning($e->getMessage(), __METHOD__);
+            return $tag;
+        }
+    }
+
+    /**
+     * Purifies the given HTML using HTML Purifier.
+     *
+     * @param string $html The HTML to be purified
+     * @param string|array|null $config The HTML Purifier config. This can either be the name of a JSON file within
+     * `config/htmlpurifier/` (sans `.json` extension) or a config array.
+     * @return string The purified HTML
+     * @since 3.4.0
+     */
+    public function purifyFilter(string $html, $config = null): string
+    {
+        if (is_string($config)) {
+            $path = Craft::$app->getPath()->getConfigPath() . DIRECTORY_SEPARATOR . 'htmlpurifier' .
+                DIRECTORY_SEPARATOR . $config . '.json';
+            $config = null;
+            if (!is_file($path)) {
+                Craft::warning("No HTML Purifier config found at {$path}.");
+            } else {
+                try {
+                    $config = Json::decode(file_get_contents($path));
+                } catch (InvalidArgumentException $e) {
+                    Craft::warning("Invalid HTML Purifier config at {$path}.");
+                }
+            }
+        }
+
+        return HtmlPurifier::process($html, $config);
+    }
+
+    /**
+     * Pushes one or more items onto the end of an array.
+     *
+     * @param array $array
+     * @return array
+     * @since 3.5.0
+     */
+    public function pushFilter(array $array): array
+    {
+        $args = func_get_args();
+        array_shift($args);
+        array_push($array, ...$args);
+        return $array;
+    }
+
+    /**
+     * Prepends one or more items to the beginning of an array.
+     *
+     * @param array $array
+     * @return array
+     * @since 3.5.0
+     */
+    public function unshiftFilter(array $array): array
+    {
+        $args = func_get_args();
+        array_shift($args);
+        array_unshift($array, ...$args);
+        return $array;
+    }
+
+    /**
+     * Removes a class (or classes) from the given HTML tag.
+     *
+     * @param string $tag The HTML tag to modify
+     * @param string|string[] $class
+     * @return string The modified HTML tag
+     * @since 3.7.0
+     */
+    public function removeClassFilter(string $tag, $class): string
+    {
+        try {
+            $oldClasses = Html::parseTagAttributes($tag)['class'] ?? [];
+            $newClasses = array_filter($oldClasses, function(string $oldClass) use ($class) {
+                return is_string($class) ? $oldClass !== $class : !in_array($oldClass, $class, true);
+            });
+
+            $newTag = Html::modifyTagAttributes($tag, ['class' => false]);
+            if (!empty($newClasses)) {
+                $newTag = Html::modifyTagAttributes($newTag, ['class' => $newClasses]);
+            }
+            return $newTag;
+        } catch (InvalidArgumentException $e) {
+            Craft::warning($e->getMessage(), __METHOD__);
+            return $tag;
+        }
     }
 
     /**
@@ -447,14 +862,14 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     /**
      * Extending Twig's |date filter so we can run any translations on the output.
      *
-     * @param \Twig_Environment $env
+     * @param TwigEnvironment $env
      * @param DateTimeInterface|DateInterval|string $date A date
      * @param string|null $format The target format, null to use the default
      * @param DateTimeZone|string|false|null $timezone The target timezone, null to use the default, false to leave unchanged
-     * @param string|null $locale The target locale the date should be formatted for. By default the current systme locale will be used.
+     * @param string|null $locale The target locale the date should be formatted for. By default the current system locale will be used.
      * @return mixed|string
      */
-    public function dateFilter(\Twig_Environment $env, $date, string $format = null, $timezone = null, string $locale = null)
+    public function dateFilter(TwigEnvironment $env, $date, string $format = null, $timezone = null, string $locale = null)
     {
         if ($date instanceof \DateInterval) {
             return \twig_date_format_filter($env, $date, $format, $timezone);
@@ -479,27 +894,66 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     }
 
     /**
+     * Appends HTML to the end of the given tag.
+     *
+     * @param string $tag The HTML tag that `$html` should be appended to
+     * @param string $html The HTML to append to `$tag`.
+     * @param string|null $ifExists What to do if `$tag` already contains a child of the same type as the element
+     * defined by `$html`. Set to `'keep'` if no action should be taken, or `'replace'` if it should be replaced
+     * by `$tag`.
+     * @return string The modified HTML
+     * @since 3.3.0
+     */
+    public function appendFilter(string $tag, string $html, string $ifExists = null): string
+    {
+        try {
+            return Html::appendToTag($tag, $html, $ifExists);
+        } catch (InvalidArgumentException $e) {
+            Craft::warning($e->getMessage(), __METHOD__);
+            return $tag;
+        }
+    }
+
+    /**
      * Converts a date to the Atom format.
      *
-     * @param \Twig_Environment $env
+     * @param TwigEnvironment $env
      * @param DateTime|DateTimeInterface|string $date A date
      * @param DateTimeZone|string|false|null $timezone The target timezone, null to use the default, false to leave unchanged
      * @return string The formatted date
      */
-    public function atomFilter(\Twig_Environment $env, $date, $timezone = null): string
+    public function atomFilter(TwigEnvironment $env, $date, $timezone = null): string
     {
         return \twig_date_format_filter($env, $date, \DateTime::ATOM, $timezone);
     }
 
     /**
+     * Modifies a HTML tag’s attributes, supporting the same attribute definitions as [[Html::renderTagAttributes()]].
+     *
+     * @param string $tag The HTML tag whose attributes should be modified.
+     * @param array $attributes The attributes to be added to the tag.
+     * @return string The modified HTML tag.
+     * @since 3.3.0
+     */
+    public function attrFilter(string $tag, array $attributes): string
+    {
+        try {
+            return Html::modifyTagAttributes($tag, $attributes);
+        } catch (InvalidArgumentException $e) {
+            Craft::warning($e->getMessage(), __METHOD__);
+            return $tag;
+        }
+    }
+
+    /**
      * Converts a date to the RSS format.
      *
-     * @param \Twig_Environment $env
+     * @param TwigEnvironment $env
      * @param DateTime|DateTimeInterface|string $date A date
      * @param DateTimeZone|string|false|null $timezone The target timezone, null to use the default, false to leave unchanged
      * @return string The formatted date
      */
-    public function rssFilter(\Twig_Environment $env, $date, $timezone = null): string
+    public function rssFilter(TwigEnvironment $env, $date, $timezone = null): string
     {
         return \twig_date_format_filter($env, $date, \DateTime::RSS, $timezone);
     }
@@ -507,14 +961,14 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     /**
      * Formats the value as a time.
      *
-     * @param \Twig_Environment $env
+     * @param TwigEnvironment $env
      * @param DateTimeInterface|string $date A date
      * @param string|null $format The target format, null to use the default
      * @param DateTimeZone|string|false|null $timezone The target timezone, null to use the default, false to leave unchanged
      * @param string|null $locale The target locale the date should be formatted for. By default the current systme locale will be used.
      * @return mixed|string
      */
-    public function timeFilter(\Twig_Environment $env, $date, string $format = null, $timezone = null, string $locale = null)
+    public function timeFilter(TwigEnvironment $env, $date, string $format = null, $timezone = null, string $locale = null)
     {
         // Is this a custom PHP date format?
         if ($format !== null && !in_array($format, [Locale::LENGTH_SHORT, Locale::LENGTH_MEDIUM, Locale::LENGTH_LONG, Locale::LENGTH_FULL], true)) {
@@ -537,14 +991,14 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     /**
      * Formats the value as a date+time.
      *
-     * @param \Twig_Environment $env
+     * @param TwigEnvironment $env
      * @param DateTimeInterface|string $date A date
      * @param string|null $format The target format, null to use the default
      * @param DateTimeZone|string|false|null $timezone The target timezone, null to use the default, false to leave unchanged
      * @param string|null $locale The target locale the date should be formatted for. By default the current systme locale will be used.
      * @return mixed|string
      */
-    public function datetimeFilter(\Twig_Environment $env, $date, string $format = null, $timezone = null, string $locale = null)
+    public function datetimeFilter(TwigEnvironment $env, $date, string $format = null, $timezone = null, string $locale = null)
     {
         // Is this a custom PHP date format?
         if ($format !== null && !in_array($format, [Locale::LENGTH_SHORT, Locale::LENGTH_MEDIUM, Locale::LENGTH_LONG, Locale::LENGTH_FULL], true)) {
@@ -576,35 +1030,85 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     }
 
     /**
-     * Groups an array or element query's results by a common property.
+     * Filters an array.
+     *
+     * @param TwigEnvironment $env
+     * @param array|\Traversable $arr
+     * @param callable|null $arrow
+     * @return array
+     */
+    public function filterFilter(TwigEnvironment $env, $arr, $arrow = null)
+    {
+        if ($arrow === null) {
+            return array_filter($arr);
+        }
+
+        // todo: remove this version check when we drop support for Twig < 2.13.1
+        if (version_compare(TwigEnvironment::VERSION, '2.13.1', '<')) {
+            $filtered = twig_array_filter($arr, $arrow);
+        } else {
+            $filtered = twig_array_filter($env, $arr, $arrow);
+        }
+
+        if (is_array($filtered)) {
+            return $filtered;
+        }
+
+        return iterator_to_array($filtered);
+    }
+
+    /**
+     * Groups an array by a the results of an arrow function, or value of a property.
      *
      * @param array|\Traversable $arr
-     * @param string $item
-     * @return array
-     * @throws \Twig_Error_Runtime if $arr is not of type array or Traversable
+     * @param callable|string $arrow The arrow function or property name that determines the group the item should be grouped in
+     * @return array[] The grouped items
+     * @throws RuntimeError if $arr is not of type array or Traversable
      */
-    public function groupFilter($arr, string $item): array
+    public function groupFilter($arr, $arrow): array
     {
         if ($arr instanceof ElementQuery) {
-            Craft::$app->getDeprecator()->log('ElementQuery::getIterator()', 'Looping through element queries directly has been deprecated. Use the all() function to fetch the query results before looping over them.');
             $arr = $arr->all();
         }
 
         if (!is_array($arr) && !$arr instanceof \Traversable) {
-            throw new \Twig_Error_Runtime('Values passed to the |group filter must be of type array or Traversable.');
+            throw new RuntimeError('Values passed to the |group filter must be of type array or Traversable.');
         }
 
         $groups = [];
 
-        $template = '{' . $item . '}';
-
-        foreach ($arr as $key => $object) {
-            $value = Craft::$app->getView()->renderObjectTemplate($template, $object);
-            $groups[$value][] = $object;
+        if (!is_string($arrow) && is_callable($arrow)) {
+            foreach ($arr as $key => $item) {
+                $groupKey = (string)$arrow($item, $key);
+                $groups[$groupKey][] = $item;
+            }
+        } else {
+            $template = '{' . $arrow . '}';
+            $view = Craft::$app->getView();
+            foreach ($arr as $item) {
+                $groupKey = $view->renderObjectTemplate($template, $item);
+                $groups[$groupKey][] = $item;
+            }
         }
 
         return $groups;
     }
+
+
+    /**
+     * Converts a date to the HTTP format (used by HTTP headers such as `Expires`).
+     *
+     * @param TwigEnvironment $env
+     * @param DateTime|DateTimeInterface|string $date A date
+     * @param DateTimeZone|string|false|null $timezone The target timezone, null to use the default, false to leave unchanged
+     * @return string The formatted date
+     * @since 3.6.10
+     */
+    public function httpdateFilter(TwigEnvironment $env, $date, $timezone = null): string
+    {
+        return \twig_date_format_filter($env, $date, \DateTime::RFC7231, $timezone);
+    }
+
 
     /**
      * Returns the index of an item in a string or array, or -1 if it cannot be found.
@@ -617,9 +1121,9 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     {
         if (is_string($haystack)) {
             $index = strpos($haystack, $needle);
-        } else if (is_array($haystack)) {
+        } elseif (is_array($haystack)) {
             $index = array_search($needle, $haystack, false);
-        } else if (is_object($haystack) && $haystack instanceof \IteratorAggregate) {
+        } elseif (is_object($haystack) && $haystack instanceof \IteratorAggregate) {
             $index = false;
 
             foreach ($haystack as $i => $item) {
@@ -658,17 +1162,33 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
      * 'gfm-comment' (GFM with newlines converted to `<br>`s),
      * or 'extra' (Markdown Extra). Default is 'original'.
      * @param bool $inlineOnly Whether to only parse inline elements, omitting any `<p>` tags.
-     * @return \Twig_Markup
+     * @return string
      */
-    public function markdownFilter($markdown, string $flavor = null, bool $inlineOnly = false): \Twig_Markup
+    public function markdownFilter($markdown, string $flavor = null, bool $inlineOnly = false): string
     {
         if ($inlineOnly) {
-            $html = Markdown::processParagraph((string)$markdown, $flavor);
-        } else {
-            $html = Markdown::process((string)$markdown, $flavor);
+            return Markdown::processParagraph((string)$markdown, $flavor);
         }
 
-        return TemplateHelper::raw($html);
+        return Markdown::process((string)$markdown, $flavor);
+    }
+
+    /**
+     * Merges an array with another one.
+     *
+     * @param array|\Traversable $arr1 An array
+     * @param array|\Traversable $arr2 An array
+     * @param bool $recursive Whether the arrays should be merged recursively using [[\yii\helpers\BaseArrayHelper::merge()]]
+     * @return array The merged array
+     * @since 3.4.0
+     */
+    public function mergeFilter($arr1, $arr2, bool $recursive = false): array
+    {
+        if ($recursive) {
+            return ArrayHelper::merge($arr1, $arr2);
+        }
+
+        return twig_array_merge($arr1, $arr2);
     }
 
     /**
@@ -683,7 +1203,7 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
      * When sorting by multiple keys with different sorting directions, use an array of sorting directions.
      * @param int|array $sortFlag the PHP sort flag. Valid values include
      * `SORT_REGULAR`, `SORT_NUMERIC`, `SORT_STRING`, `SORT_LOCALE_STRING`, `SORT_NATURAL` and `SORT_FLAG_CASE`.
-     * Please refer to [PHP manual](http://php.net/manual/en/function.sort.php)
+     * Please refer to [PHP manual](https://php.net/manual/en/function.sort.php)
      * for more details. When sorting by multiple keys with different sort flags, use an array of sort flags.
      * @return array the sorted array
      * @throws InvalidArgumentException if the $direction or $sortFlag parameters do not have
@@ -698,54 +1218,61 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     }
 
     /**
-     * Returns a list of functions to add to the existing list.
-     *
-     * @return \Twig_SimpleFunction[] An array of functions
+     * @inheritdoc
      */
     public function getFunctions(): array
     {
         return [
-            new \Twig_SimpleFunction('alias', [Craft::class, 'getAlias']),
-            new \Twig_SimpleFunction('actionUrl', [UrlHelper::class, 'actionUrl']),
-            new \Twig_SimpleFunction('cpUrl', [UrlHelper::class, 'cpUrl']),
-            new \Twig_SimpleFunction('ceil', 'ceil'),
-            new \Twig_SimpleFunction('className', 'get_class'),
-            new \Twig_SimpleFunction('clone', [$this, 'cloneFunction']),
-            new \Twig_SimpleFunction('csrfInput', [$this, 'csrfInputFunction']),
-            new \Twig_SimpleFunction('floor', 'floor'),
-            new \Twig_SimpleFunction('getenv', 'getenv'),
-            new \Twig_SimpleFunction('redirectInput', [$this, 'redirectInputFunction']),
-            new \Twig_SimpleFunction('renderObjectTemplate', [$this, 'renderObjectTemplate']),
-            new \Twig_SimpleFunction('round', [$this, 'roundFunction']),
-            new \Twig_SimpleFunction('shuffle', [$this, 'shuffleFunction']),
-            new \Twig_SimpleFunction('siteUrl', [UrlHelper::class, 'siteUrl']),
-            new \Twig_SimpleFunction('svg', [$this, 'svgFunction']),
-            new \Twig_SimpleFunction('url', [UrlHelper::class, 'url']),
+            new TwigFunction('actionUrl', [UrlHelper::class, 'actionUrl']),
+            new TwigFunction('alias', [Craft::class, 'getAlias']),
+            new TwigFunction('ceil', 'ceil'),
+            new TwigFunction('className', 'get_class'),
+            new TwigFunction('clone', [$this, 'cloneFunction']),
+            new TwigFunction('combine', 'array_combine'),
+            new TwigFunction('configure', [Craft::class, 'configure']),
+            new TwigFunction('cpUrl', [UrlHelper::class, 'cpUrl']),
+            new TwigFunction('create', [Craft::class, 'createObject']),
+            new TwigFunction('dataUrl', [$this, 'dataUrlFunction']),
+            new TwigFunction('date', [$this, 'dateFunction'], ['needs_environment' => true]),
+            new TwigFunction('expression', [$this, 'expressionFunction']),
+            new TwigFunction('floor', 'floor'),
+            new TwigFunction('getenv', [App::class, 'env']),
+            new TwigFunction('gql', [$this, 'gqlFunction']),
+            new TwigFunction('parseEnv', [App::class, 'parseEnv']),
+            new TwigFunction('parseBooleanEnv', [App::class, 'parseBooleanEnv']),
+            new TwigFunction('plugin', [$this, 'pluginFunction']),
+            new TwigFunction('raw', [TemplateHelper::class, 'raw']),
+            new TwigFunction('renderObjectTemplate', [$this, 'renderObjectTemplate']),
+            new TwigFunction('round', [$this, 'roundFunction']),
+            new TwigFunction('seq', [$this, 'seqFunction']),
+            new TwigFunction('shuffle', [$this, 'shuffleFunction']),
+            new TwigFunction('siteUrl', [UrlHelper::class, 'siteUrl']),
+            new TwigFunction('url', [UrlHelper::class, 'url']),
+
+            // HTML generation functions
+            new TwigFunction('actionInput', [Html::class, 'actionInput'], ['is_safe' => ['html']]),
+            new TwigFunction('attr', [Html::class, 'renderTagAttributes'], ['is_safe' => ['html']]),
+            new TwigFunction('csrfInput', [Html::class, 'csrfInput'], ['is_safe' => ['html']]),
+            new TwigFunction('failMessageInput', [Html::class, 'failMessageInput'], ['is_safe' => ['html']]),
+            new TwigFunction('hiddenInput', [Html::class, 'hiddenInput'], ['is_safe' => ['html']]),
+            new TwigFunction('input', [Html::class, 'input'], ['is_safe' => ['html']]),
+            new TwigFunction('ol', [Html::class, 'ol'], ['is_safe' => ['html']]),
+            new TwigFunction('redirectInput', [Html::class, 'redirectInput'], ['is_safe' => ['html']]),
+            new TwigFunction('successMessageInput', [Html::class, 'successMessageInput'], ['is_safe' => ['html']]),
+            new TwigFunction('svg', [$this, 'svgFunction'], ['is_safe' => ['html']]),
+            new TwigFunction('tag', [$this, 'tagFunction'], ['is_safe' => ['html']]),
+            new TwigFunction('ul', [Html::class, 'ul'], ['is_safe' => ['html']]),
+
             // DOM event functions
-            new \Twig_SimpleFunction('head', [$this->view, 'head']),
-            new \Twig_SimpleFunction('beginBody', [$this->view, 'beginBody']),
-            new \Twig_SimpleFunction('endBody', [$this->view, 'endBody']),
+            new TwigFunction('head', [$this->view, 'head']),
+            new TwigFunction('beginBody', [$this->view, 'beginBody']),
+            new TwigFunction('endBody', [$this->view, 'endBody']),
+
             // Deprecated functions
-            new \Twig_SimpleFunction('getCsrfInput', [$this, 'getCsrfInput']),
-            new \Twig_SimpleFunction('getHeadHtml', [$this, 'getHeadHtml']),
-            new \Twig_SimpleFunction('getFootHtml', [$this, 'getFootHtml']),
+            new TwigFunction('getCsrfInput', [$this, 'getCsrfInput'], ['is_safe' => ['html'], 'deprecated' => '3.0.0', 'alternative' => 'csrfInput()']),
+            new TwigFunction('getHeadHtml', [$this, 'getHeadHtml'], ['is_safe' => ['html'], 'deprecated' => '3.0.0', 'alternative' => 'head()']),
+            new TwigFunction('getFootHtml', [$this, 'getFootHtml'], ['is_safe' => ['html'], 'deprecated' => '3.0.0', 'alternative' => 'endBody()']),
         ];
-    }
-
-    /**
-     * Returns a CSRF input wrapped in a \Twig_Markup object.
-     *
-     * @return \Twig_Markup|null
-     */
-    public function csrfInputFunction()
-    {
-        $generalConfig = Craft::$app->getConfig()->getGeneral();
-
-        if ($generalConfig->enableCsrfProtection === true) {
-            return TemplateHelper::raw('<input type="hidden" name="' . $generalConfig->csrfTokenName . '" value="' . Craft::$app->getRequest()->getCsrfToken() . '">');
-        }
-
-        return null;
     }
 
     /**
@@ -760,14 +1287,82 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     }
 
     /**
-     * Returns a redirect input wrapped in a \Twig_Markup object.
+     * Generates a base64-encoded [data URL](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs) for the given file path or asset.
      *
-     * @param string $url The URL to redirect to.
-     * @return \Twig_Markup
+     * @param string|Asset $file A file path on an asset
+     * @param string|null $mimeType The file’s MIME type. If `null` then it will be determined automatically.
+     * @return string The data URL
+     * @throws InvalidConfigException if `$file` is an invalid file path, or an asset with a missing/invalid volume ID
+     * @throws AssetException if a stream could not be created for the asset
+     * @since 3.5.13
      */
-    public function redirectInputFunction(string $url): \Twig_Markup
+    public function dataUrlFunction($file, string $mimeType = null): string
     {
-        return TemplateHelper::raw('<input type="hidden" name="redirect" value="' . Craft::$app->getSecurity()->hashData($url) . '">');
+        if ($file instanceof Asset) {
+            return $file->getDataUrl();
+        }
+
+        return Html::dataUrl(Craft::getAlias($file), $mimeType);
+    }
+
+    /**
+     * Converts an input to a [[\DateTime]] instance.
+     *
+     * @param TwigEnvironment $env
+     * @param \DateTimeInterface|string|array|null $date A date, or null to use the current time
+     * @param \DateTimeZone|string|false|null $timezone The target timezone, `null` to use the default, `false` to leave unchanged
+     * @return \DateTimeInterface
+     */
+    public function dateFunction(TwigEnvironment $env, $date = null, $timezone = null): DateTimeInterface
+    {
+        // Support for date/time arrays
+        if (is_array($date)) {
+            $date = DateTimeHelper::toDateTime($date, false, false);
+            if ($date === false) {
+                throw new InvalidArgumentException('Invalid date passed to date() function');
+            }
+        }
+
+        return twig_date_converter($env, $date, $timezone);
+    }
+
+    /**
+     * @param mixed $expression
+     * @param mixed $params
+     * @param mixed $config
+     * @return Expression
+     * @since 3.1.0
+     */
+    public function expressionFunction($expression, $params = [], $config = []): Expression
+    {
+        return new Expression($expression, $params, $config);
+    }
+
+    /**
+     * Executes a GraphQL query against the full schema.
+     *
+     * @param string $query The GraphQL query
+     * @param array|null $variables Query variables
+     * @param string|null $operationName The operation name
+     * @return array The query result
+     * @since 3.3.12
+     */
+    public function gqlFunction(string $query, array $variables = null, string $operationName = null): array
+    {
+        $schema = Gql::createFullAccessSchema();
+        return Craft::$app->getGql()->executeQuery($schema, $query, $variables, $operationName);
+    }
+
+    /**
+     * Returns a plugin instance by its handle.
+     *
+     * @param string $handle The plugin handle
+     * @return PluginInterface|null The plugin, or `null` if it's not installed
+     * @since 3.1.0
+     */
+    public function pluginFunction(string $handle)
+    {
+        return Craft::$app->getPlugins()->getPlugin($handle);
     }
 
     /**
@@ -777,13 +1372,33 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
      * @param int $precision
      * @param int $mode
      * @return int|float
-     * @deprecated in 3.0. Use Twig's |round filter instead.
+     * @deprecated in 3.0.0. Use Twig's |round filter instead.
      */
     public function roundFunction($value, int $precision = 0, int $mode = PHP_ROUND_HALF_UP)
     {
-        Craft::$app->getDeprecator()->log('round()', 'The round() function has been deprecated. Use Twig’s |round filter instead.');
+        Craft::$app->getDeprecator()->log('round()', 'The `round()` function has been deprecated. Use Twig’s `|round` filter instead.');
 
         return round($value, $precision, $mode);
+    }
+
+    /**
+     * Returns the next number in a given sequence, or the current number in the sequence.
+     *
+     * @param string $name The sequence name.
+     * @param int|null $length The minimum string length that should be returned. (Numbers that are too short will be left-padded with `0`s.)
+     * @param bool $next Whether the next number in the sequence should be returned (and the sequence should be incremented).
+     * If set to `false`, the current number in the sequence will be returned instead.
+     * @return integer|string
+     * @throws \Throwable if reasons
+     * @throws \yii\db\Exception
+     * @since 3.0.31
+     */
+    public function seqFunction(string $name, int $length = null, bool $next = true)
+    {
+        if ($next) {
+            return Sequence::next($name, $length);
+        }
+        return Sequence::current($name, $length);
     }
 
     /**
@@ -816,13 +1431,20 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
     }
 
     /**
-     * Returns the (sanitized) contents of a given SVG file, namespacing any of its IDs in the process.
+     * Returns the contents of a given SVG file.
      *
-     * @param string|Asset $svg An SVG asset, a file path, or XML data
-     * @param bool $sanitize Whether the file should be sanitized first
-     * @return \Twig_Markup|string
+     * @param string|Asset $svg An SVG asset, a file path, or raw SVG markup
+     * @param bool|null $sanitize Whether the SVG should be sanitized of potentially
+     * malicious scripts. By default the SVG will only be sanitized if an asset
+     * or markup is passed in. (File paths are assumed to be safe.)
+     * @param bool|null $namespace Whether class names and IDs within the SVG
+     * should be namespaced to avoid conflicts with other elements in the DOM.
+     * By default the SVG will only be namespaced if an asset or markup is passed in.
+     * @param string|null $class A CSS class name that should be added to the `<svg>` element.
+     * (This argument is deprecated. The `|attr` filter should be used instead.)
+     * @return string
      */
-    public function svgFunction($svg, bool $sanitize = true)
+    public function svgFunction($svg, bool $sanitize = null, bool $namespace = null, string $class = null)
     {
         if ($svg instanceof Asset) {
             try {
@@ -832,68 +1454,112 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
                 Craft::$app->getErrorHandler()->logException($e);
                 return '';
             }
-        } else if (stripos($svg, '<svg') === false) {
+        } elseif (stripos($svg, '<svg') === false) {
             // No <svg> tag, so it's probably a file path
-            $svg = Craft::getAlias($svg);
+            try {
+                $svg = Craft::getAlias($svg);
+            } catch (InvalidArgumentException $e) {
+                Craft::error("Could not get the contents of $svg: {$e->getMessage()}", __METHOD__);
+                Craft::$app->getErrorHandler()->logException($e);
+                return '';
+            }
             if (!is_file($svg) || !FileHelper::isSvg($svg)) {
                 Craft::warning("Could not get the contents of {$svg}: The file doesn't exist", __METHOD__);
                 return '';
             }
             $svg = file_get_contents($svg);
+
+            // This came from a file path, so pretty good chance that the SVG can be trusted.
+            $sanitize = $sanitize ?? false;
+            $namespace = $namespace ?? false;
         }
+
+        // Sanitize and namespace the SVG by default
+        $sanitize = $sanitize ?? true;
+        $namespace = $namespace ?? true;
 
         // Sanitize?
         if ($sanitize) {
-            $svg = (new Sanitizer())->sanitize($svg);
+            $svg = Html::sanitizeSvg($svg);
         }
 
         // Remove the XML declaration
-        $svg = preg_replace('/<\?xml.*?\?>/', '', $svg);
+        $svg = preg_replace('/<\?xml.*?\?>\s*/', '', $svg);
 
-        // Namespace any IDs
-        if (strpos($svg, 'id=') !== false || strpos($svg, 'class=') !== false) {
-            $namespace = StringHelper::randomStringWithChars('abcdefghijklmnopqrstuvwxyz', 10) . '-';
-            $ids = [];
-            $classes = [];
-            $svg = preg_replace_callback('/\bid=([\'"])([^\'"]+)\\1/i', function($matches) use ($namespace, &$ids) {
-                $ids[] = $matches[2];
-                return "id={$matches[1]}{$namespace}{$matches[2]}{$matches[1]}";
-            }, $svg);
-            $svg = preg_replace_callback('/\bclass=([\'"])([^\'"]+)\\1/i', function($matches) use ($namespace, &$classes) {
-                $newClasses = [];
-                foreach (preg_split('/\s+/', $matches[2]) as $class) {
-                    $classes[] = $class;
-                    $newClasses[] = $namespace . $class;
-                }
-                return 'class=' . $matches[1] . implode(' ', $newClasses) . $matches[1];
-            }, $svg);
-            foreach ($ids as $id) {
-                $quotedId = preg_quote($id, '\\');
-                $svg = preg_replace("/#{$quotedId}\b(?!\-)/", "#{$namespace}{$id}", $svg);
-            }
-            foreach ($classes as $class) {
-                $quotedClass = preg_quote($class, '\\');
-                $svg = preg_replace("/\.{$quotedClass}\b(?!\-)/", ".{$namespace}{$class}", $svg);
+        // Namespace class names and IDs
+        if ($namespace) {
+            $ns = StringHelper::randomString(10);
+            $svg = Html::namespaceAttributes($svg, $ns, true);
+        }
+
+        if ($class !== null) {
+            Craft::$app->getDeprecator()->log('svg()-class', 'The `class` argument of the `svg()` Twig function has been deprecated. The `|attr` filter should be used instead.');
+            try {
+                $svg = Html::modifyTagAttributes($svg, [
+                    'class' => $class,
+                ]);
+            } catch (InvalidArgumentException $e) {
+                Craft::warning('Unable to add a class to the SVG: ' . $e->getMessage(), __METHOD__);
             }
         }
 
-        return TemplateHelper::raw($svg);
+        return $svg;
     }
 
     /**
-     * Returns a list of global variables to add to the existing list.
+     * Generates a complete HTML tag.
      *
-     * @return array An array of global variables
+     * @param string $type the tag type ('p', 'div', etc.)
+     * @param array $attributes the HTML tag attributes in terms of name-value pairs.
+     * If `text` is supplied, the value will be HTML-encoded and included as the contents of the tag.
+     * If 'html' is supplied, the value will be included as the contents of the tag, without getting encoded.
+     * @return string
+     * @since 3.3.0
+     */
+    public function tagFunction(string $type, array $attributes = []): string
+    {
+        $html = ArrayHelper::remove($attributes, 'html', '');
+        $text = ArrayHelper::remove($attributes, 'text');
+
+        if ($text !== null) {
+            $html = Html::encode($text);
+        }
+
+        return Html::tag($type, $html, $attributes);
+    }
+
+    /**
+     * @inheritdoc
      */
     public function getGlobals(): array
     {
         $isInstalled = Craft::$app->getIsInstalled();
         $request = Craft::$app->getRequest();
         $generalConfig = Craft::$app->getConfig()->getGeneral();
+        $setPasswordRequestPath = $generalConfig->getSetPasswordRequestPath();
 
-        $globals = [
+        if ($isInstalled && !Craft::$app->getUpdates()->getIsCraftDbMigrationNeeded()) {
+            /** @noinspection PhpUnhandledExceptionInspection */
+            $currentSite = Craft::$app->getSites()->getCurrentSite();
+
+            $currentUser = Craft::$app->getUser()->getIdentity();
+            $siteName = Craft::t('site', $currentSite->getName());
+            $siteUrl = $currentSite->getBaseUrl();
+            $systemName = Craft::$app->getSystemName();
+        } else {
+            $currentSite = $currentUser = $siteName = $siteUrl = $systemName = null;
+        }
+
+        return [
+            'craft' => new CraftVariable(),
+            'currentSite' => $currentSite,
+            'currentUser' => $currentUser,
+            'siteName' => $siteName,
+            'siteUrl' => $siteUrl,
+            'systemName' => $systemName,
             'view' => $this->view,
 
+            'devMode' => YII_DEBUG,
             'SORT_ASC' => SORT_ASC,
             'SORT_DESC' => SORT_DESC,
             'SORT_REGULAR' => SORT_REGULAR,
@@ -911,102 +1577,51 @@ class Extension extends \Twig_Extension implements \Twig_Extension_GlobalsInterf
             'isInstalled' => $isInstalled,
             'loginUrl' => UrlHelper::siteUrl($generalConfig->getLoginPath()),
             'logoutUrl' => UrlHelper::siteUrl($generalConfig->getLogoutPath()),
-            'now' => new DateTime(null, new \DateTimeZone(Craft::$app->getTimeZone()))
+            'setPasswordUrl' => $setPasswordRequestPath !== null ? UrlHelper::siteUrl($setPasswordRequestPath) : null,
+            'now' => new DateTime('now', new \DateTimeZone(Craft::$app->getTimeZone())),
         ];
-
-        $globals['craft'] = new CraftVariable();
-
-        if ($isInstalled && !$request->getIsConsoleRequest() && !Craft::$app->getUpdates()->getIsCraftDbMigrationNeeded()) {
-            $globals['currentUser'] = Craft::$app->getUser()->getIdentity();
-        } else {
-            $globals['currentUser'] = null;
-        }
-
-        $templateMode = $this->view->getTemplateMode();
-
-        // CP-only variables
-        if ($templateMode === View::TEMPLATE_MODE_CP) {
-            $globals['CraftEdition'] = Craft::$app->getEdition();
-            $globals['CraftSolo'] = Craft::Solo;
-            $globals['CraftPro'] = Craft::Pro;
-        }
-
-        // Only set these things when Craft is installed and not being updated
-        if ($isInstalled && !Craft::$app->getUpdates()->getIsCraftDbMigrationNeeded()) {
-            $globals['systemName'] = Craft::$app->getInfo()->name;
-            /** @noinspection PhpUnhandledExceptionInspection */
-            $site = Craft::$app->getSites()->getCurrentSite();
-            $globals['currentSite'] = $site;
-            $globals['siteName'] = $site->name;
-            $globals['siteUrl'] = Craft::getAlias($site->baseUrl);
-
-            // Global sets (site templates only)
-            if ($templateMode === View::TEMPLATE_MODE_SITE) {
-                foreach (Craft::$app->getGlobals()->getAllSets() as $globalSet) {
-                    $globals[$globalSet->handle] = $globalSet;
-                }
-            }
-        } else {
-            $globals['systemName'] = null;
-            $globals['currentSite'] = null;
-            $globals['siteName'] = null;
-            $globals['siteUrl'] = null;
-        }
-
-        return $globals;
-    }
-
-    /**
-     * Returns the name of the extension.
-     *
-     * @return string The extension name
-     */
-    public function getName(): string
-    {
-        return 'craft';
     }
 
     // Deprecated Methods
     // -------------------------------------------------------------------------
 
     /**
+     * @return string
      * @deprecated in Craft 3.0. Use csrfInput() instead.
-     * @return \Twig_Markup|null
      */
-    public function getCsrfInput()
+    public function getCsrfInput(): string
     {
-        Craft::$app->getDeprecator()->log('getCsrfInput', 'getCsrfInput() has been deprecated. Use csrfInput() instead.');
-
-        return $this->csrfInputFunction();
+        Craft::$app->getDeprecator()->log('getCsrfInput', '`getCsrfInput()` has been deprecated. Use `csrfInput()` instead.');
+        return Html::csrfInput();
     }
 
     /**
+     * @return string
      * @deprecated in Craft 3.0. Use head() instead.
-     * @return \Twig_Markup
      */
-    public function getHeadHtml(): \Twig_Markup
+    public function getHeadHtml(): string
     {
-        Craft::$app->getDeprecator()->log('getHeadHtml', 'getHeadHtml() has been deprecated. Use head() instead.');
+        Craft::$app->getDeprecator()->log('getHeadHtml', '`getHeadHtml()` has been deprecated. Use `head()` instead.');
 
         ob_start();
         ob_implicit_flush(false);
         $this->view->head();
 
-        return TemplateHelper::raw(ob_get_clean());
+        return ob_get_clean();
     }
 
     /**
+     * @return string
      * @deprecated in Craft 3.0. Use endBody() instead.
-     * @return \Twig_Markup
      */
-    public function getFootHtml(): \Twig_Markup
+    public function getFootHtml(): string
     {
-        Craft::$app->getDeprecator()->log('getFootHtml', 'getFootHtml() has been deprecated. Use endBody() instead.');
+        Craft::$app->getDeprecator()->log('getFootHtml', '`getFootHtml()` has been deprecated. Use `endBody()` instead.');
 
         ob_start();
         ob_implicit_flush(false);
         $this->view->endBody();
 
-        return TemplateHelper::raw(ob_get_clean());
+        return ob_get_clean();
     }
 }

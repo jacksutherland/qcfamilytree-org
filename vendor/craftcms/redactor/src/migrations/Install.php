@@ -14,24 +14,26 @@ class Install extends Migration
     /**
      * @inheritdoc
      */
-    public function safeUp()
+    public function safeUp(): bool
     {
         // Auto-convert old Rich Text fields
         $this->update('{{%fields}}', [
-            'type' => Field::class
+            'type' => Field::class,
         ], [
-            'type' => 'craft\\fields\\RichText'
+            'type' => 'craft\\fields\\RichText',
         ], [], false);
 
         // Update any Redactor configs
         Plugin::getInstance()->getMigrator()->migrateUp('m180430_204710_remove_old_plugins');
+
+        return true;
     }
 
     /**
      * @inheritdoc
      */
-    public function safeDown()
+    public function safeDown(): bool
     {
-        // Place uninstallation code here...
+        return true;
     }
 }

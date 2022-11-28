@@ -15,13 +15,10 @@ use craft\base\Model;
  *
  * @property bool $isSortable whether elements in this structure can be sorted by the current user
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Structure extends Model
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var int|null ID
      */
@@ -32,17 +29,19 @@ class Structure extends Model
      */
     public $maxLevels;
 
-    // Public Methods
-    // =========================================================================
+    /**
+     * @var string|null UID
+     */
+    public $uid;
 
     /**
      * @inheritdoc
      */
-    public function rules()
+    protected function defineRules(): array
     {
-        return [
-            [['id', 'maxLevels'], 'number', 'integerOnly' => true],
-        ];
+        $rules = parent::defineRules();
+        $rules[] = [['id', 'maxLevels'], 'number', 'integerOnly' => true];
+        return $rules;
     }
 
     /**

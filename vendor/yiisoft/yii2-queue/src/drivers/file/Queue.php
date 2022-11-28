@@ -1,8 +1,8 @@
 <?php
 /**
- * @link http://www.yiiframework.com/
+ * @link https://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
+ * @license https://www.yiiframework.com/license/
  */
 
 namespace yii\queue\file;
@@ -281,7 +281,10 @@ class Queue extends CliQueue
         if (($file = fopen($fileName, 'rb+')) === false) {
             throw new InvalidConfigException("Unable to open index file: $fileName");
         }
-        flock($file, LOCK_EX);
+        if (!flock($file, LOCK_EX)) {
+            fclose($file);
+            throw new InvalidConfigException("Unable to flock index file: $fileName");
+        }
         $data = [];
         $content = stream_get_contents($file);
         if ($content !== '') {

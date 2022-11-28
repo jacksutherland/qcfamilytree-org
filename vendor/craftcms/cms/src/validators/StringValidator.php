@@ -14,13 +14,10 @@ use craft\helpers\StringHelper;
  * Class StringValidator.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class StringValidator extends \yii\validators\StringValidator
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var bool whether the string should be checked for 4+ byte characters (like emoji)
      */
@@ -34,11 +31,10 @@ class StringValidator extends \yii\validators\StringValidator
 
     /**
      * @var bool whether the string should be trimmed of whitespace
+     * @since 3.0.18
+     * @deprecated in 3.0.32. Use Yii’s `'trim'` validator instead.
      */
     public $trim = false;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * @inheritdoc
@@ -57,19 +53,16 @@ class StringValidator extends \yii\validators\StringValidator
      */
     public function validateAttribute($model, $attribute)
     {
+        $value = $model->$attribute;
+
+        if (is_string($value) && $this->trim) {
+            $model->$attribute = $value = trim($value);
+        }
+
         parent::validateAttribute($model, $attribute);
 
-        $value = $model->$attribute;
-        if (!is_string($value)) {
-            return;
-        }
-
-        if ($this->disallowMb4 && !Craft::$app->getDb()->getSupportsMb4() && StringHelper::containsMb4($value)) {
+        if (is_string($value) && $this->disallowMb4 && !Craft::$app->getDb()->getSupportsMb4() && StringHelper::containsMb4($value)) {
             $this->addError($model, $attribute, $this->containsMb4);
-        }
-
-        if ($this->trim) {
-            $model->$attribute = trim($value);
         }
     }
 

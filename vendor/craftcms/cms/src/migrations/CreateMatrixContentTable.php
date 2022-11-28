@@ -8,25 +8,20 @@
 namespace craft\migrations;
 
 use craft\db\Migration;
+use craft\db\Table;
 
 /**
  * CreateMatrixContentTable Migration
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class CreateMatrixContentTable extends Migration
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var string|null The table name
      */
     public $tableName;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * @inheritdoc
@@ -51,8 +46,8 @@ class CreateMatrixContentTable extends Migration
      */
     public function addForeignKeys()
     {
-        $this->addForeignKey(null, $this->tableName, ['elementId'], '{{%elements}}', ['id'], 'CASCADE', null);
-        $this->addForeignKey(null, $this->tableName, ['siteId'], '{{%sites}}', ['id'], 'CASCADE', 'CASCADE');
+        $this->addForeignKey(null, $this->tableName, ['elementId'], Table::ELEMENTS, ['id'], 'CASCADE', null);
+        $this->addForeignKey(null, $this->tableName, ['siteId'], Table::SITES, ['id'], 'CASCADE', 'CASCADE');
     }
 
     /**

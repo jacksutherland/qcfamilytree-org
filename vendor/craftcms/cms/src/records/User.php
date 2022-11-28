@@ -7,7 +7,10 @@
 
 namespace craft\records;
 
+use Craft;
 use craft\db\ActiveRecord;
+use craft\db\Table;
+use yii\db\ActiveQuery;
 use yii\db\ActiveQueryInterface;
 
 /**
@@ -40,20 +43,50 @@ use yii\db\ActiveQueryInterface;
  * @property Session[] $sessions Sessions
  * @property UserGroup[] $groups User groups
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class User extends ActiveRecord
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      * @return string
      */
     public static function tableName(): string
     {
-        return '{{%users}}';
+        return Table::USERS;
+    }
+
+    /**
+     * @return ActiveQuery
+     */
+    public static function find()
+    {
+        $query = parent::find()
+            ->innerJoinWith(['element element']);
+
+        // todo: remove schema version condition after next beakpoint
+        $schemaVersion = Craft::$app->getInstalledSchemaVersion();
+        if (version_compare($schemaVersion, '3.1.19', '>=')) {
+            $query->where(['element.dateDeleted' => null]);
+        }
+
+        return $query;
+    }
+
+    /**
+     * @return ActiveQuery
+     */
+    public static function findWithTrashed(): ActiveQuery
+    {
+        return static::find()->where([]);
+    }
+
+    /**
+     * @return ActiveQuery
+     */
+    public static function findTrashed(): ActiveQuery
+    {
+        return static::find()->where(['not', ['element.dateDeleted' => null]]);
     }
 
     /**
@@ -84,6 +117,6 @@ class User extends ActiveRecord
     public function getGroups(): ActiveQueryInterface
     {
         return $this->hasMany(UserGroup::class, ['id' => 'groupId'])
-            ->viaTable('{{%usergroups_users}}', ['userId' => 'id']);
+            ->viaTable(Table::USERGROUPS_USERS, ['userId' => 'id']);
     }
 }

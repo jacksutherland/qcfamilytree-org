@@ -8,6 +8,7 @@
 namespace craft\records;
 
 use craft\db\ActiveRecord;
+use craft\db\Table;
 use yii\db\ActiveQueryInterface;
 
 /**
@@ -21,13 +22,10 @@ use yii\db\ActiveQueryInterface;
  * @property VolumeFolder $parent Parent
  * @property Volume $volume Volume
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class VolumeFolder extends ActiveRecord
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -45,7 +43,7 @@ class VolumeFolder extends ActiveRecord
      */
     public static function tableName(): string
     {
-        return '{{%volumefolders}}';
+        return Table::VOLUMEFOLDERS;
     }
 
     /**

@@ -22,6 +22,9 @@ use Symfony\Component\Console\Input\InputArgument;
  */
 class ExecCommand extends BaseCommand
 {
+    /**
+     * @return void
+     */
     protected function configure()
     {
         $this
@@ -36,9 +39,19 @@ class ExecCommand extends BaseCommand
                     'Arguments to pass to the binary. Use <info>--</info> to separate from composer arguments'
                 ),
             ))
+            ->setHelp(
+                <<<EOT
+Executes a vendored binary/script.
+
+Read more at https://getcomposer.org/doc/03-cli.md#exec
+EOT
+            )
         ;
     }
 
+    /**
+     * @return int
+     */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $composer = $this->getComposer();
@@ -53,7 +66,8 @@ class ExecCommand extends BaseCommand
                 throw new \RuntimeException("No binaries found in composer.json or in bin-dir ($binDir)");
             }
 
-            $this->getIO()->write(<<<EOT
+            $this->getIO()->write(
+                <<<EOT
 <comment>Available binaries:</comment>
 EOT
             );
@@ -66,7 +80,8 @@ EOT
 
                 $previousBin = $bin;
                 $bin = basename($bin);
-                $this->getIO()->write(<<<EOT
+                $this->getIO()->write(
+                    <<<EOT
 <info>- $bin</info>
 EOT
                 );
@@ -79,8 +94,16 @@ EOT
 
         $dispatcher = $composer->getEventDispatcher();
         $dispatcher->addListener('__exec_command', $binary);
-        if ($output->getVerbosity() === OutputInterface::VERBOSITY_NORMAL) {
-            $output->setVerbosity(OutputInterface::VERBOSITY_QUIET);
+
+        // If the CWD was modified, we restore it to what it was initially, as it was
+        // most likely modified by the global command, and we want exec to run in the local working directory
+        // not the global one
+        if (getcwd() !== $this->getApplication()->getInitialWorkingDirectory()) {
+            try {
+                chdir($this->getApplication()->getInitialWorkingDirectory());
+            } catch (\Exception $e) {
+                throw new \RuntimeException('Could not switch back to working directory "'.$this->getApplication()->getInitialWorkingDirectory().'"', 0, $e);
+            }
         }
 
         return $dispatcher->dispatchScript('__exec_command', true, $input->getArgument('args'));

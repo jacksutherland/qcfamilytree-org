@@ -9,23 +9,27 @@ namespace craft\mail;
 
 use Craft;
 use craft\elements\User;
+use craft\helpers\App;
 use craft\helpers\Template;
-use Swift_TransportException;
+use craft\web\View;
 use yii\base\InvalidConfigException;
 use yii\helpers\Markdown;
-use yii\mail\MessageInterface;
+use yii\mail\MailEvent;
 
 /**
  * The Mailer component provides APIs for sending email in Craft.
  * An instance of the Mailer component is globally accessible in Craft via [[\craft\web\Application::mailer|`Craft::$app->mailer`]].
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Mailer extends \yii\swiftmailer\Mailer
 {
-    // Properties
-    // =========================================================================
+    /**
+     * @event MailEvent The event that is triggered before a message is prepped to be sent.
+     * @since 3.6.5
+     */
+    const EVENT_BEFORE_PREP = 'beforePrep';
 
     /**
      * @var string|null The email template that should be used
@@ -33,12 +37,15 @@ class Mailer extends \yii\swiftmailer\Mailer
     public $template;
 
     /**
-     * @var string|array|User|User[]|null $from The default sender’s email address, or their user model(s).
+     * @var string|array|User|User[]|null The default sender’s email address, or their user model(s).
      */
     public $from;
 
-    // Public Methods
-    // =========================================================================
+    /**
+     * @var string|array|User|User[]|null The default Reply-To email address, or their user model(s).
+     * @since 3.4.0
+     */
+    public $replyTo;
 
     /**
      * Composes a new email based on a given key.
@@ -74,75 +81,77 @@ class Mailer extends \yii\swiftmailer\Mailer
     }
 
     /**
-     * Sends the given email message.
-     *
-     * This method will log a message about the email being sent.
-     * If [[useFileTransport]] is true, it will save the email as a file under [[fileTransportPath]].
-     * Otherwise, it will call [[sendMessage()]] to send the email to its recipient(s).
-     * Child classes should implement [[sendMessage()]] with the actual email sending logic.
-     *
-     * @param MessageInterface $message The email message instance to be sent.
-     * @return bool Whether the message has been sent successfully.
+     * @inheritdoc
      */
     public function send($message)
     {
-        if ($message instanceof Message && $message->key !== null) {
-            $systemMessage = Craft::$app->getSystemMessages()->getMessage($message->key, $message->language);
-            $subjectTemplate = $systemMessage->subject;
-            $textBodyTemplate = $systemMessage->body;
+        // fire a beforePrep event
+        $this->trigger(self::EVENT_BEFORE_PREP, new MailEvent([
+            'message' => $message,
+        ]));
 
-            // Use the site template mode
-            $view = Craft::$app->getView();
-            $templateMode = $view->getTemplateMode();
-            $view->setTemplateMode($view::TEMPLATE_MODE_SITE);
+        $generalConfig = Craft::$app->getConfig()->getGeneral();
+
+        if ($message instanceof Message && $message->key !== null) {
+            if ($message->language === null) {
+                // Default to the current language
+                $message->language = Craft::$app->getRequest()->getIsSiteRequest()
+                    ? Craft::$app->language
+                    : Craft::$app->getSites()->getPrimarySite()->language;
+            }
+
+            $systemMessage = Craft::$app->getSystemMessages()->getMessage($message->key, $message->language);
 
             // Use the message language
             $language = Craft::$app->language;
-            if ($message->language !== null) {
-                Craft::$app->language = $message->language;
-            }
+            Craft::$app->language = $message->language;
 
-            $settings = Craft::$app->getSystemSettings()->getEmailSettings();
+            $settings = App::mailSettings();
             $variables = ($message->variables ?: []) + [
                     'emailKey' => $message->key,
-                    'fromEmail' => $settings->fromEmail,
-                    'fromName' => $settings->fromName,
+                    'fromEmail' => App::parseEnv($settings->fromEmail),
+                    'replyToEmail' => App::parseEnv($settings->replyToEmail),
+                    'fromName' => App::parseEnv($settings->fromName),
                 ];
 
-            // Render the subject and textBody
-            $subject = $view->renderString($subjectTemplate, $variables);
-            $textBody = $view->renderString($textBodyTemplate, $variables);
+            // Temporarily disable lazy transform generation
+            $generateTransformsBeforePageLoad = $generalConfig->generateTransformsBeforePageLoad;
+            $generalConfig->generateTransformsBeforePageLoad = true;
+
+            // Render the subject and body text
+            $view = Craft::$app->getView();
+            $subject = $view->renderString($systemMessage->subject, $variables, View::TEMPLATE_MODE_SITE);
+            $body = $view->renderString($systemMessage->body, $variables, View::TEMPLATE_MODE_SITE);
+
+            // Remove </> from around URLs, so they’re not interpreted as HTML tags
+            $textBody = preg_replace('/<(https?:\/\/.+?)>/', '$1', $body);
+
+            $message->setSubject($subject);
+            $message->setTextBody($textBody);
 
             // Is there a custom HTML template set?
             if (Craft::$app->getEdition() === Craft::Pro && $this->template) {
                 $template = $this->template;
+                $templateMode = View::TEMPLATE_MODE_SITE;
             } else {
                 // Default to the _special/email.html template
-                $view->setTemplateMode($view::TEMPLATE_MODE_CP);
                 $template = '_special/email';
+                $templateMode = View::TEMPLATE_MODE_CP;
             }
 
-            $e = null;
             try {
-                $htmlBody = $view->renderTemplate($template, array_merge($variables, [
-                    'body' => Template::raw(Markdown::process($textBody)),
-                ]));
+                $message->setHtmlBody($view->renderTemplate($template, array_merge($variables, [
+                    'body' => Template::raw(Markdown::process($body)),
+                ]), $templateMode));
             } catch (\Throwable $e) {
-                // Clean up before throwing
+                // Just log it and don't worry about the HTML body
+                Craft::warning('Error rendering email template: ' . $e->getMessage(), __METHOD__);
+                Craft::$app->getErrorHandler()->logException($e);
             }
 
             // Set things back to normal
             Craft::$app->language = $language;
-            $view->setTemplateMode($templateMode);
-
-            if ($e !== null) {
-                throw $e;
-            }
-
-            $message
-                ->setSubject($subject)
-                ->setHtmlBody($htmlBody)
-                ->setTextBody($textBody);
+            $generalConfig->generateTransformsBeforePageLoad = $generateTransformsBeforePageLoad;
         }
 
         // Set the default sender if there isn't one already
@@ -150,27 +159,34 @@ class Mailer extends \yii\swiftmailer\Mailer
             $message->setFrom($this->from);
         }
 
+        if ($this->replyTo && !$message->getReplyTo()) {
+            $message->setReplyTo($this->replyTo);
+        }
+
         // Apply the testToEmailAddress config setting
-        $testToEmailAddress = (array)Craft::$app->getConfig()->getGeneral()->testToEmailAddress;
+        $testToEmailAddress = $generalConfig->getTestToEmailAddress();
         if (!empty($testToEmailAddress)) {
-            $to = [];
-            foreach ($testToEmailAddress as $emailAddress => $name) {
-                if (is_numeric($emailAddress)) {
-                    $to[$name] = Craft::t('app', 'Test Recipient');
-                } else {
-                    $to[$emailAddress] = $name;
-                }
-            }
-            $message->setTo($to);
+            $message->setTo($testToEmailAddress);
             $message->setCc(null);
             $message->setBcc(null);
         }
 
         try {
             return parent::send($message);
-        } catch (Swift_TransportException $e) {
-            Craft::error('Error sending email: ' . $e->getMessage());
-            Craft::$app->getErrorHandler()->logException($e);
+        } catch (\Throwable $e) {
+            $eMessage = $e->getMessage();
+
+            // Remove the stack trace to get rid of any sensitive info. Note that Swiftmailer includes a debug
+            // backlog in the exception message. :-/
+            $eMessage = substr($eMessage, 0, strpos($eMessage, 'Stack trace:') - 1);
+            Craft::warning('Error sending email: ' . $eMessage);
+
+            // Save the exception on the message, for plugins to make use of
+            if ($message instanceof Message) {
+                $message->error = $e;
+            }
+
+            $this->afterSend($message, false);
             return false;
         }
     }

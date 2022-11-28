@@ -20,7 +20,8 @@ use yii\db\Connection;
  * @method GlobalSet|array|null one($db = null)
  * @method GlobalSet|array|null nth(int $n, Connection $db = null)
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
+ * @doc-path globals.md
  * @supports-site-params
  * @replace {element} global set
  * @replace {elements} global sets
@@ -30,8 +31,10 @@ use yii\db\Connection;
  */
 class GlobalSetQuery extends ElementQuery
 {
-    // Properties
-    // =========================================================================
+    /**
+     * @inheritdoc
+     */
+    protected $defaultOrderBy = ['globalsets.name' => SORT_ASC];
 
     // General parameters
     // -------------------------------------------------------------------------
@@ -48,17 +51,14 @@ class GlobalSetQuery extends ElementQuery
      */
     public $handle;
 
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function __construct($elementType, array $config = [])
+    public function __construct(string $elementType, array $config = [])
     {
-        // Default orderBy
-        if (!isset($config['orderBy'])) {
-            $config['orderBy'] = 'name';
+        // todo: set this from the property def in v4
+        if (version_compare(Craft::$app->getInstalledSchemaVersion(), '3.7.6', '>=')) {
+            $this->defaultOrderBy = ['globalsets.sortOrder' => SORT_ASC];
         }
 
         parent::__construct($elementType, $config);
@@ -82,7 +82,7 @@ class GlobalSetQuery extends ElementQuery
      *
      * Possible values include:
      *
-     * | Value | Fetches {elements}…
+     * | Value | Fetches global sets…
      * | - | -
      * | `'foo'` | with a handle of `foo`.
      * | `'not foo'` | not with a handle of `foo`.
@@ -92,14 +92,14 @@ class GlobalSetQuery extends ElementQuery
      * ---
      *
      * ```twig
-     * {# Fetch the {element} with a handle of 'foo' #}
+     * {# Fetch the global set with a handle of 'foo' #}
      * {% set {element-var} = {twig-method}
-     *     .handle('foo')
-     *     .one() %}
+     *   .handle('foo')
+     *   .one() %}
      * ```
      *
      * ```php
-     * // Fetch the {element} with a handle of 'foo'
+     * // Fetch the global set with a handle of 'foo'
      * ${element-var} = {php-method}
      *     ->handle('foo')
      *     ->one();
@@ -115,9 +115,6 @@ class GlobalSetQuery extends ElementQuery
         return $this;
     }
 
-    // Protected Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -128,19 +125,36 @@ class GlobalSetQuery extends ElementQuery
         $this->query->select([
             'globalsets.name',
             'globalsets.handle',
+            'globalsets.uid',
         ]);
+
+        // todo: remove this condition after the next breakpoint
+        if (version_compare(Craft::$app->getInstalledSchemaVersion(), '3.7.6', '>=')) {
+            $this->query->addSelect('globalsets.sortOrder');
+        }
 
         if ($this->handle) {
             $this->subQuery->andWhere(Db::parseParam('globalsets.handle', $this->handle));
         }
 
         $this->_applyEditableParam();
+        $this->_applyRefParam();
 
         return parent::beforePrepare();
     }
 
-    // Private Methods
-    // =========================================================================
+
+    /**
+     * Applies the 'ref' param to the query being prepared.
+     */
+    private function _applyRefParam()
+    {
+        if (!$this->ref) {
+            return;
+        }
+
+        $this->subQuery->andWhere(Db::parseParam('globalsets.handle', $this->ref));
+    }
 
     /**
      * Applies the 'editable' param to the query being prepared.

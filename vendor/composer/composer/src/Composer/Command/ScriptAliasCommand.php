@@ -22,9 +22,15 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class ScriptAliasCommand extends BaseCommand
 {
+    /** @var string */
     private $script;
+    /** @var string */
     private $description;
 
+    /**
+     * @param string $script
+     * @param string $description
+     */
     public function __construct($script, $description)
     {
         $this->script = $script;
@@ -33,6 +39,9 @@ class ScriptAliasCommand extends BaseCommand
         parent::__construct();
     }
 
+    /**
+     * @return void
+     */
     protected function configure()
     {
         $this
@@ -43,15 +52,21 @@ class ScriptAliasCommand extends BaseCommand
                 new InputOption('no-dev', null, InputOption::VALUE_NONE, 'Disables the dev mode.'),
                 new InputArgument('args', InputArgument::IS_ARRAY | InputArgument::OPTIONAL, ''),
             ))
-            ->setHelp(<<<EOT
+            ->setHelp(
+                <<<EOT
 The <info>run-script</info> command runs scripts defined in composer.json:
 
 <info>php composer.phar run-script post-update-cmd</info>
+
+Read more at https://getcomposer.org/doc/03-cli.md#run-script
 EOT
             )
         ;
     }
 
+    /**
+     * @return int
+     */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $composer = $this->getComposer();

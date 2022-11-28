@@ -8,6 +8,7 @@
 namespace craft\records;
 
 use craft\db\ActiveRecord;
+use craft\db\Table;
 
 /**
  * Class UserPermission record.
@@ -15,13 +16,10 @@ use craft\db\ActiveRecord;
  * @property int $id ID
  * @property string $name Name
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class UserPermission extends ActiveRecord
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -40,6 +38,6 @@ class UserPermission extends ActiveRecord
      */
     public static function tableName(): string
     {
-        return '{{%userpermissions}}';
+        return Table::USERPERMISSIONS;
     }
 }

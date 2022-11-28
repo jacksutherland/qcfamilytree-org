@@ -8,23 +8,28 @@
 namespace craft\fields;
 
 use Craft;
-use craft\base\Element;
 use craft\base\ElementInterface;
 use craft\elements\db\ElementQueryInterface;
+use craft\elements\db\TagQuery;
 use craft\elements\Tag;
+use craft\gql\arguments\elements\Tag as TagArguments;
+use craft\gql\interfaces\elements\Tag as TagInterface;
+use craft\gql\resolvers\elements\Tag as TagResolver;
+use craft\helpers\Gql;
+use craft\helpers\Gql as GqlHelper;
+use craft\models\GqlSchema;
 use craft\models\TagGroup;
+use craft\services\Gql as GqlService;
+use GraphQL\Type\Definition\Type;
 
 /**
  * Tags represents a Tags field.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Tags extends BaseRelationField
 {
-    // Static
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -49,33 +54,34 @@ class Tags extends BaseRelationField
         return Craft::t('app', 'Add a tag');
     }
 
-    // Properties
-    // =========================================================================
+    /**
+     * @inheritdoc
+     */
+    public static function valueType(): string
+    {
+        return TagQuery::class;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public $allowMultipleSources = false;
+
+    /**
+     * @inheritdoc
+     */
+    public $allowLimit = false;
 
     /**
      * @var
      */
     private $_tagGroupId;
 
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function init()
+    protected function inputHtml($value, ElementInterface $element = null): string
     {
-        parent::init();
-        $this->allowMultipleSources = false;
-        $this->allowLimit = false;
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function getInputHtml($value, ElementInterface $element = null): string
-    {
-        /** @var Element|null $element */
         if ($element !== null && $element->hasEagerLoadedElements($this->handle)) {
             $value = $element->getEagerLoadedElements($this->handle);
         }
@@ -84,7 +90,7 @@ class Tags extends BaseRelationField
             $value = $value
                 ->anyStatus()
                 ->all();
-        } else if (!is_array($value)) {
+        } elseif (!is_array($value)) {
             $value = [];
         }
 
@@ -94,10 +100,10 @@ class Tags extends BaseRelationField
             return Craft::$app->getView()->renderTemplate('_components/fieldtypes/Tags/input',
                 [
                     'elementType' => static::elementType(),
-                    'id' => Craft::$app->getView()->formatInputId($this->handle),
+                    'id' => $this->getInputId(),
                     'name' => $this->handle,
                     'elements' => $value,
-                    'tagGroupId' => $this->_getTagGroupId(),
+                    'tagGroupId' => $tagGroup->id,
                     'targetSiteId' => $this->targetSiteId($element),
                     'sourceElementId' => $element !== null ? $element->id : null,
                     'selectionLabel' => $this->selectionLabel ? Craft::t('site', $this->selectionLabel) : static::defaultSelectionLabel(),
@@ -107,8 +113,52 @@ class Tags extends BaseRelationField
         return '<p class="error">' . Craft::t('app', 'This field is not set to a valid source.') . '</p>';
     }
 
-    // Private Methods
-    // =========================================================================
+    /**
+     * @inheritdoc
+     */
+    public function includeInGqlSchema(GqlSchema $schema): bool
+    {
+        return Gql::canQueryTags($schema);
+    }
+
+    /**
+     * @inheritdoc
+     * @since 3.3.0
+     */
+    public function getContentGqlType()
+    {
+        return [
+            'name' => $this->handle,
+            'type' => Type::listOf(TagInterface::getType()),
+            'args' => TagArguments::getArguments(),
+            'resolve' => TagResolver::class . '::resolve',
+            'complexity' => GqlHelper::relatedArgumentComplexity(GqlService::GRAPHQL_COMPLEXITY_EAGER_LOAD),
+        ];
+    }
+
+    /**
+     * @inheritdoc
+     * @since 3.3.0
+     */
+    public function getEagerLoadingGqlConditions()
+    {
+        $allowedEntities = Gql::extractAllowedEntitiesFromSchema();
+        $tagGroupUids = $allowedEntities['taggroups'] ?? [];
+
+        if (empty($tagGroupUids)) {
+            return false;
+        }
+
+        $tagsService = Craft::$app->getTags();
+        $tagGroupIds = array_filter(array_map(function(string $uid) use ($tagsService) {
+            $tagGroup = $tagsService->getTagGroupByUid($uid);
+            return $tagGroup->id ?? null;
+        }, $tagGroupUids));
+
+        return [
+            'groupId' => $tagGroupIds,
+        ];
+    }
 
     /**
      * Returns the tag group associated with this field.
@@ -120,7 +170,7 @@ class Tags extends BaseRelationField
         $tagGroupId = $this->_getTagGroupId();
 
         if ($tagGroupId !== false) {
-            return Craft::$app->getTags()->getTagGroupById($tagGroupId);
+            return Craft::$app->getTags()->getTagGroupByUid($tagGroupId);
         }
 
         return null;
@@ -137,10 +187,10 @@ class Tags extends BaseRelationField
             return $this->_tagGroupId;
         }
 
-        if (!preg_match('/^taggroup:(\d+)$/', $this->source, $matches)) {
+        if (!preg_match('/^taggroup:([0-9a-f\-]+)$/', $this->source, $matches)) {
             return $this->_tagGroupId = false;
         }
 
-        return $this->_tagGroupId = (int)$matches[1];
+        return $this->_tagGroupId = $matches[1];
     }
 }

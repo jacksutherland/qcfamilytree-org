@@ -1,0 +1,16 @@
+contentColumnType: text
+fieldGroup: 8f34b7f7-ccaf-4579-9b50-ed681ffe57ac
+handle: blogIntro
+instructions: ''
+name: 'Blog Intro'
+searchable: true
+settings:
+  charLimit: ''
+  code: ''
+  columnType: text
+  initialRows: '2'
+  multiline: '1'
+  placeholder: ''
+translationKeyFormat: null
+translationMethod: none
+type: craft\fields\PlainText

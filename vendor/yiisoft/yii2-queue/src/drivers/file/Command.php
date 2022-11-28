@@ -1,8 +1,8 @@
 <?php
 /**
- * @link http://www.yiiframework.com/
+ * @link https://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
+ * @license https://www.yiiframework.com/license/
  */
 
 namespace yii\queue\file;
@@ -70,7 +70,7 @@ class Command extends CliCommand
             throw new Exception('Timeout must be numeric.');
         }
         if ($timeout < 1) {
-            throw new Exception('Timeout must be greater that zero.');
+            throw new Exception('Timeout must be greater than zero.');
         }
 
         return $this->queue->run(true, $timeout);

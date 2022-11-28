@@ -8,8 +8,10 @@
 namespace craft\services;
 
 use Craft;
-use craft\errors\TokenNotFoundException;
+use craft\db\Table;
 use craft\helpers\DateTimeHelper;
+use craft\helpers\Db;
+use craft\helpers\Session;
 use craft\models\CraftIdToken;
 use craft\records\CraftIdToken as OauthTokenRecord;
 use DateInterval;
@@ -18,16 +20,14 @@ use yii\base\Component;
 
 /**
  * Plugin Store service.
- * An instance of the Plugin Store service is globally accessible in Craft via [[\craft\base\ApplicationTrait::getPluginStore()|`Craft::$app->pluginStore`]].
+ *
+ * An instance of the service is available via [[\craft\base\ApplicationTrait::getPluginStore()|`Craft::$app->pluginStore`]].
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class PluginStore extends Component
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var string Craft ID endpoint
      */
@@ -48,51 +48,20 @@ class PluginStore extends Component
      */
     public $craftIdOauthClientId = '6DvEra7eqRKLYic9fovyD2FWFjYxRwZn';
 
-    // Public Methods
-    // =========================================================================
+    /**
+     * @var string Dev server manifest path
+     */
+    public $devServerManifestPath = 'https://localhost:8082/';
 
     /**
-     * Returns the Craft ID account.
-     *
-     * @return array|null
-     * @throws \Exception
+     * @var string Dev server public path
      */
-    public function getCraftIdAccount()
-    {
-        $craftIdToken = $this->getToken();
-
-        if (!$craftIdToken) {
-            return null;
-        }
-
-        $client = Craft::$app->getApi()->client;
-        $options = $this->getApiRequestOptions();
-        $craftIdAccountResponse = $client->get('account', $options);
-        $craftIdAccount = json_decode($craftIdAccountResponse->getBody(), true);
-
-        if (isset($craftIdAccount['error'])) {
-            throw new \Exception("Couldn’t get Craft ID account: " . $craftIdAccount['error']);
-        }
-
-        return $craftIdAccount;
-    }
+    public $devServerPublicPath = 'https://localhost:8082/';
 
     /**
-     * Returns the options for authenticated API requests.
-     *
-     * @return array
+     * @var bool Enable dev server
      */
-    public function getApiRequestOptions(): array
-    {
-        $options = [];
-
-        $token = $this->getToken();
-        if ($token && $token->accessToken !== null) {
-            $options['headers']['Authorization'] = 'Bearer ' . $token->accessToken;
-        }
-
-        return $options;
-    }
+    public $useDevServer = false;
 
     /**
      * Saves the OAuth token.
@@ -127,7 +96,7 @@ class PluginStore extends Component
 
         if ($saveToSession) {
             // Save token to session
-            Craft::$app->getSession()->set('pluginStore.token', $oauthToken);
+            Session::set('pluginStore.token', $oauthToken);
         } else {
             // Save token to database
 
@@ -157,7 +126,7 @@ class PluginStore extends Component
         $userId = Craft::$app->getUser()->getIdentity()->id;
 
         // Get the token from the session
-        $token = Craft::$app->getSession()->get('pluginStore.token');
+        $token = Session::get('pluginStore.token');
 
         if ($token && !$token->hasExpired()) {
             return $token;
@@ -200,8 +169,7 @@ class PluginStore extends Component
 
 
         // Delete session token
-
-        Craft::$app->getSession()->remove('pluginStore.token');
+        Session::remove('pluginStore.token');
     }
 
     /**
@@ -218,9 +186,9 @@ class PluginStore extends Component
             return false;
         }
 
-        Craft::$app->getDb()->createCommand()
-            ->delete('{{%craftidtokens}}', ['userId' => $userId])
-            ->execute();
+        Db::delete(Table::CRAFTIDTOKENS, [
+            'userId' => $userId,
+        ]);
 
         return true;
     }
@@ -240,28 +208,5 @@ class PluginStore extends Component
         }
 
         return new CraftIdToken($record->getAttributes());
-    }
-
-    // Private Methods
-    // =========================================================================
-
-    /**
-     * Returns a plugin store token record based on its ID.
-     *
-     * @param int $id
-     * @return OauthTokenRecord
-     */
-    private function _getOauthTokenRecordById($id = null)
-    {
-        if ($id) {
-            $record = OauthTokenRecord::findOne($id);
-            if (!$record) {
-                throw new TokenNotFoundException("No token exists with the ID '{$id}'");
-            }
-        } else {
-            $record = new OauthTokenRecord();
-        }
-
-        return $record;
     }
 }

@@ -8,26 +8,28 @@
 namespace craft\web\twig\nodes;
 
 use craft\web\View;
+use Twig\Compiler;
+use Twig\Node\Node;
+use Twig\Node\NodeCaptureInterface;
 use yii\base\NotSupportedException;
 
 /**
  * Class RegisterResourceNode
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
-class RegisterResourceNode extends \Twig_Node implements \Twig_NodeCaptureInterface
+class RegisterResourceNode extends Node implements NodeCaptureInterface
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function compile(\Twig_Compiler $compiler)
+    public function compile(Compiler $compiler)
     {
         $method = $this->getAttribute('method');
         $position = $this->getAttribute('position');
+        $defaultPosition = $this->getAttribute('defaultPosition');
+        $allowOptions = $this->getAttribute('allowOptions');
         $value = $this->getNode('value');
         $options = $this->hasNode('options') ? $this->getNode('options') : null;
 
@@ -37,10 +39,10 @@ class RegisterResourceNode extends \Twig_Node implements \Twig_NodeCaptureInterf
             $compiler
                 ->write("ob_start();\n")
                 ->subcompile($value)
-                ->write("Craft::\$app->getView()->{$method}(ob_get_clean()");
+                ->write("$method(ob_get_clean()");
         } else {
             $compiler
-                ->write("Craft::\$app->getView()->{$method}(")
+                ->write("$method(")
                 ->subcompile($value);
         }
 
@@ -53,6 +55,8 @@ class RegisterResourceNode extends \Twig_Node implements \Twig_NodeCaptureInterf
                 $position = 'endBody';
             }
         }
+
+        $positionPhp = null;
 
         if ($position !== null) {
             // Figure out what the position's PHP value is
@@ -82,29 +86,34 @@ class RegisterResourceNode extends \Twig_Node implements \Twig_NodeCaptureInterf
             }
         }
 
-        if ($this->getAttribute('allowOptions')) {
-            if ($position !== null || $options !== null) {
+        // Does the method have a dedicated `$position` argument?
+        $positionArgument = ($position !== null && !$allowOptions) || $defaultPosition !== null;
+        if ($positionArgument) {
+            $compiler->raw(', ' . $positionPhp ?? $defaultPosition);
+        }
+
+        if ($allowOptions) {
+            $positionOption = $position !== null && !$positionArgument;
+
+            if ($positionOption || $options !== null) {
                 $compiler->raw(', ');
 
-                // Do we have to merge the position with other options?
-                if ($position !== null && $options !== null) {
-                    /** @noinspection PhpUndefinedVariableInspection */
-                    $compiler
-                        ->raw('array_merge(')
-                        ->subcompile($options)
-                        ->raw(", ['position' => $positionPhp])");
-                } else if ($position !== null) {
-                    /** @noinspection PhpUndefinedVariableInspection */
-                    $compiler
-                        ->raw("['position' => $positionPhp]");
+                if ($positionOption) {
+                    // Do we have to merge the position with other options?
+                    if ($options !== null) {
+                        $compiler
+                            ->raw('array_merge(')
+                            ->subcompile($options)
+                            ->raw(", ['position' => $positionPhp])");
+                    } else {
+                        $compiler
+                            ->raw("['position' => $positionPhp]");
+                    }
                 } else {
                     $compiler
                         ->subcompile($options);
                 }
             }
-        } else if ($position !== null) {
-            /** @noinspection PhpUndefinedVariableInspection */
-            $compiler->raw(", $positionPhp");
         }
 
         $compiler->raw(");\n");

@@ -1,8 +1,8 @@
 <?php
 /**
- * @link http://www.yiiframework.com/
+ * @link https://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
+ * @license https://www.yiiframework.com/license/
  */
 
 namespace yii\queue;
@@ -10,16 +10,10 @@ namespace yii\queue;
 /**
  * Error Event.
  *
+ * @deprecated Will be removed in 3.0. Use ExecEvent instead.
+ *
  * @author Roman Zhuravlev <zhuravljov@gmail.com>
  */
 class ErrorEvent extends ExecEvent
 {
-    /**
-     * @var \Exception|\Throwable
-     */
-    public $error;
-    /**
-     * @var bool
-     */
-    public $retry;
 }

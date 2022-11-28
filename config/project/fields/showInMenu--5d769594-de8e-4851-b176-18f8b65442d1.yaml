@@ -1,0 +1,11 @@
+contentColumnType: boolean
+fieldGroup: 435b0ef2-0c42-40bf-9055-6769daac4110
+handle: showInMenu
+instructions: ''
+name: 'Show In Menu'
+searchable: true
+settings:
+  default: '1'
+translationKeyFormat: null
+translationMethod: none
+type: craft\fields\Lightswitch

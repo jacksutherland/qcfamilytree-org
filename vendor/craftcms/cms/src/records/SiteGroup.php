@@ -8,6 +8,8 @@
 namespace craft\records;
 
 use craft\db\ActiveRecord;
+use craft\db\SoftDeleteTrait;
+use craft\db\Table;
 use yii\db\ActiveQueryInterface;
 
 /**
@@ -17,12 +19,11 @@ use yii\db\ActiveQueryInterface;
  * @property string $name Name
  * @property Site[] $sites Sites
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class SiteGroup extends ActiveRecord
 {
-    // Public Methods
-    // =========================================================================
+    use SoftDeleteTrait;
 
     /**
      * @inheritdoc
@@ -30,7 +31,7 @@ class SiteGroup extends ActiveRecord
      */
     public static function tableName(): string
     {
-        return '{{%sitegroups}}';
+        return Table::SITEGROUPS;
     }
 
     /**
@@ -40,6 +41,6 @@ class SiteGroup extends ActiveRecord
      */
     public function getSites(): ActiveQueryInterface
     {
-        return $this->hasMany(Site::class, ['siteId' => 'id']);
+        return $this->hasMany(Site::class, ['groupId' => 'id']);
     }
 }

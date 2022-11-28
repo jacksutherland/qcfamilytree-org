@@ -1,8 +1,8 @@
 <?php
 /**
- * @link http://www.yiiframework.com/
+ * @link https://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
+ * @license https://www.yiiframework.com/license/
  */
 
 namespace yii\queue\cli;
@@ -69,7 +69,7 @@ class SignalLoop extends BaseObject implements LoopInterface
     public function init()
     {
         parent::init();
-        if (extension_loaded('pcntl')) {
+        if (extension_loaded('pcntl') && function_exists('pcntl_signal')) {
             foreach ($this->exitSignals as $signal) {
                 pcntl_signal($signal, function () {
                     self::$exit = true;
@@ -95,7 +95,7 @@ class SignalLoop extends BaseObject implements LoopInterface
      */
     public function canContinue()
     {
-        if (extension_loaded('pcntl')) {
+        if (extension_loaded('pcntl') && function_exists('pcntl_signal_dispatch')) {
             pcntl_signal_dispatch();
             // Wait for resume signal until loop is suspended
             while (self::$pause && !self::$exit) {

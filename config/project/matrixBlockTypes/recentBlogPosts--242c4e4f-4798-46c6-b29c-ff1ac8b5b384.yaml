@@ -1,0 +1,51 @@
+field: 53caff22-2ce8-4149-83e4-74b104ad4bb6
+fieldLayouts:
+  c3f0540a-3457-439a-8469-c8b2f6d7e9a3:
+    tabs:
+      -
+        fields:
+          1f101357-c1c7-4de5-b26e-aa701e4165e1:
+            required: false
+            sortOrder: 1
+          07001914-40cd-4d7f-a811-71ea9633d0a1:
+            required: true
+            sortOrder: 2
+        name: Content
+        sortOrder: 1
+fields:
+  1f101357-c1c7-4de5-b26e-aa701e4165e1:
+    contentColumnType: text
+    fieldGroup: null
+    handle: header
+    instructions: 'This will occupy one of the blog post blocks'
+    name: Header
+    searchable: true
+    settings:
+      charLimit: ''
+      code: ''
+      columnType: text
+      initialRows: '4'
+      multiline: ''
+      placeholder: ''
+    translationKeyFormat: null
+    translationMethod: none
+    type: craft\fields\PlainText
+  07001914-40cd-4d7f-a811-71ea9633d0a1:
+    contentColumnType: smallint(2)
+    fieldGroup: null
+    handle: numberOfPosts
+    instructions: ''
+    name: 'Number of Posts'
+    searchable: true
+    settings:
+      decimals: 0
+      defaultValue: '4'
+      max: '24'
+      min: '4'
+      size: null
+    translationKeyFormat: null
+    translationMethod: none
+    type: craft\fields\Number
+handle: recentBlogPosts
+name: 'Recent Blog Posts'
+sortOrder: 6

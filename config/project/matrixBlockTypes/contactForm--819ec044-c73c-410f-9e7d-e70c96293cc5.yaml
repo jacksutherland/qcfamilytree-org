@@ -1,0 +1,52 @@
+field: 53caff22-2ce8-4149-83e4-74b104ad4bb6
+fieldLayouts:
+  f97b004f-39d4-459b-b2b9-7c1e8a0ee1df:
+    tabs:
+      -
+        fields:
+          5a91090e-ad3d-48ee-bf8b-45a4a92b230b:
+            required: false
+            sortOrder: 2
+          381dbae5-0024-4c00-ba0e-51741a6d13df:
+            required: false
+            sortOrder: 1
+        name: Content
+        sortOrder: 1
+fields:
+  5a91090e-ad3d-48ee-bf8b-45a4a92b230b:
+    contentColumnType: text
+    fieldGroup: null
+    handle: subtitle
+    instructions: ''
+    name: Subtitle
+    searchable: true
+    settings:
+      charLimit: ''
+      code: ''
+      columnType: text
+      initialRows: '4'
+      multiline: ''
+      placeholder: ''
+    translationKeyFormat: null
+    translationMethod: none
+    type: craft\fields\PlainText
+  381dbae5-0024-4c00-ba0e-51741a6d13df:
+    contentColumnType: text
+    fieldGroup: null
+    handle: header
+    instructions: ''
+    name: Header
+    searchable: true
+    settings:
+      charLimit: ''
+      code: ''
+      columnType: text
+      initialRows: '4'
+      multiline: ''
+      placeholder: ''
+    translationKeyFormat: null
+    translationMethod: none
+    type: craft\fields\PlainText
+handle: contactForm
+name: 'Contact Form'
+sortOrder: 4

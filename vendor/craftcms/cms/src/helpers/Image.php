@@ -10,24 +10,22 @@ namespace craft\helpers;
 use Craft;
 use craft\errors\ImageException;
 use craft\image\Svg;
+use Imagick;
+use Throwable;
+use TypeError;
+use yii\base\InvalidArgumentException;
 
 /**
  * Class Image
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Image
 {
-    // Constants
-    // =========================================================================
-
     const EXIF_IFD0_ROTATE_180 = 3;
     const EXIF_IFD0_ROTATE_90 = 6;
     const EXIF_IFD0_ROTATE_270 = 8;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * Calculates a missing target dimension for an image.
@@ -40,15 +38,83 @@ class Image
      */
     public static function calculateMissingDimension($targetWidth, $targetHeight, $sourceWidth, $sourceHeight): array
     {
-        $factor = $sourceWidth / $sourceHeight;
-
-        if (empty($targetHeight)) {
-            $targetHeight = ceil($targetWidth / $factor);
-        } else if (empty($targetWidth)) {
-            $targetWidth = ceil($targetHeight * $factor);
+        // If the target width & height are both present, return them
+        if ($targetWidth && $targetHeight) {
+            return [(int)$targetWidth, (int)$targetHeight];
         }
 
-        return [(int)$targetWidth, (int)$targetHeight];
+        // Make sure that there's a source width/height
+        if (!$sourceWidth || !$sourceHeight) {
+            throw new InvalidArgumentException('Image missing its width or height');
+        }
+
+        // If neither were supplied, just use the source dimensions
+        if (!$targetWidth && !$targetHeight) {
+            return [(int)$sourceWidth, (int)$sourceHeight];
+        }
+
+        // Fill in the blank
+        return [
+            (int)($targetWidth ?: round($targetHeight * ($sourceWidth / $sourceHeight))),
+            (int)($targetHeight ?: round($targetWidth * ($sourceHeight / $sourceWidth))),
+        ];
+    }
+
+    /**
+     * Returns the target image width and height for an image, based on its transform type and constraints,
+     * and whether the source image should be upscaled.
+     *
+     * @param int $sourceWidth
+     * @param int $sourceHeight
+     * @param int|null $transformWidth
+     * @param int|null $transformHeight
+     * @param string $mode The transform mode (`crop`, `fit`, or `stretch`)
+     * @param bool|null $upscale Whether to upscale the image to fill the transform dimensions.
+     * Defaults to the `upscaleImages` config setting.
+     * @return int[]
+     * @phpstan-return array{int,int}
+     * @since 3.7.55
+     */
+    public static function targetDimensions(
+        int $sourceWidth,
+        int $sourceHeight,
+        ?int $transformWidth,
+        ?int $transformHeight,
+        string $mode = 'crop',
+        ?bool $upscale = null
+    ): array {
+        [$width, $height] = static::calculateMissingDimension($transformWidth, $transformHeight, $sourceWidth, $sourceHeight);
+        $factor = max($sourceWidth / $width, $sourceHeight / $height);
+
+        if ($upscale ?? Craft::$app->getConfig()->getGeneral()->upscaleImages) {
+            // Special case for 'fit' since that's the only one whose dimensions vary from the transform dimensions
+            if ($mode === 'fit') {
+                $width = (int)round($sourceWidth / $factor);
+                $height = (int)round($sourceHeight / $factor);
+            }
+
+            return [$width, $height];
+        }
+
+        if ($transformWidth === null || $transformHeight === null) {
+            $transformRatio = $sourceWidth / $sourceHeight;
+        } else {
+            $transformRatio = $transformWidth / $transformHeight;
+        }
+
+        $imageRatio = $sourceWidth / $sourceHeight;
+
+        if ($mode === 'fit' || $imageRatio === $transformRatio) {
+            $targetWidth = min($sourceWidth, $width, (int)round($sourceWidth / $factor));
+            $targetHeight = min($sourceHeight, $height, (int)round($sourceHeight / $factor));
+            return [$targetWidth, $targetHeight];
+        }
+
+        // Since we don't want to upscale, make sure the calculated ratios aren't bigger than the actual image size.
+        $newWidth = min($sourceWidth, $transformWidth, (int)round($sourceHeight * $transformRatio));
+        $newHeight = min($sourceHeight, $transformHeight, (int)round($sourceWidth / $transformRatio));
+
+        return [$newWidth, $newHeight];
     }
 
     /**
@@ -77,7 +143,7 @@ class Image
      */
     public static function webSafeFormats(): array
     {
-        return ['jpg', 'jpeg', 'gif', 'png', 'svg', 'webp'];
+        return ['jpg', 'jpeg', 'gif', 'png', 'svg', 'webp', 'avif'];
     }
 
     /**
@@ -86,11 +152,11 @@ class Image
      * Adapted from https://github.com/ktomk/Miscellaneous/tree/master/get_png_imageinfo.
      *
      * @param string $file The path to the PNG file.
-     * @author Tom Klingenberg <lastflood.net>
+     * @return array|bool Info embedded in the PNG file, or `false` if it wasn’t found.
      * @license Apache 2.0
      * @version 0.1.0
      * @link http://www.libpng.org/pub/png/spec/iso/index-object.html#11IHDR
-     * @return array|bool Info embedded in the PNG file, or `false` if it wasn’t found.
+     * @author Tom Klingenberg <lastflood.net>
      */
     public static function pngImageInfo(string $file)
     {
@@ -131,7 +197,7 @@ class Image
             2 => 'Truecolour',
             3 => 'Indexed-colour',
             4 => 'Greyscale with alpha',
-            6 => 'Truecolor with alpha'
+            6 => 'Truecolor with alpha',
         ];
 
         if (empty($type[$color])) {
@@ -189,7 +255,7 @@ class Image
 
             $image = Craft::$app->getImages()->loadImage($filePath);
             return [$image->getWidth(), $image->getHeight()];
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             return [0, 0];
         }
     }
@@ -199,12 +265,12 @@ class Image
      *
      * @param resource $stream
      * @return array|false
-     * @throws \TypeError
+     * @throws TypeError
      */
     public static function imageSizeByStream($stream)
     {
         if (!is_resource($stream)) {
-            throw new \TypeError('Argument passed should be a resource.');
+            throw new TypeError('Argument passed should be a resource.');
         }
 
         $dimensions = [];
@@ -316,7 +382,7 @@ class Image
             $height = floor(
                 $matchedHeight * self::_getSizeUnitMultiplier($heightMatch[3])
             );
-        } else if (preg_match(Svg::SVG_VIEWBOX_RE, $svg, $viewboxMatch)) {
+        } elseif (preg_match(Svg::SVG_VIEWBOX_RE, $svg, $viewboxMatch)) {
             $width = floor($viewboxMatch[3]);
             $height = floor($viewboxMatch[4]);
         } else {
@@ -328,8 +394,31 @@ class Image
         return [$width, $height];
     }
 
-    // Private Methods
-    // =========================================================================
+    /**
+     * Clean EXIF data from an image loaded inside an Imagick instance, taking
+     * care not to wipe the ICC profile.
+     *
+     * @param Imagick $imagick
+     */
+    public static function cleanExifDataFromImagickImage(Imagick $imagick)
+    {
+        $config = Craft::$app->getConfig()->getGeneral();
+
+        if (!$config->preserveExifData) {
+            $iccProfiles = null;
+            $supportsImageProfiles = method_exists($imagick, 'getimageprofiles');
+
+            if ($config->preserveImageColorProfiles && $supportsImageProfiles) {
+                $iccProfiles = $imagick->getImageProfiles("icc", true);
+            }
+
+            $imagick->stripImage();
+
+            if (!empty($iccProfiles)) {
+                $imagick->profileImage("icc", $iccProfiles['icc'] ?? '');
+            }
+        }
+    }
 
     /**
      * Returns the multiplier that should be used to convert an image size unit to pixels.
@@ -342,8 +431,6 @@ class Image
         $ppi = 72;
 
         switch ($unit) {
-            case 'px':
-                return 1;
             case 'in':
                 return $ppi;
             case 'pt':

@@ -8,23 +8,24 @@
 namespace craft\web\twig;
 
 use Craft;
-use Twig_LoaderInterface;
+use Twig\Environment as TwigEnvironment;
+use Twig\Error\Error;
+use Twig\Extension\EscaperExtension;
+use Twig\Loader\LoaderInterface;
+use Twig\Source;
 
 /**
  * Base Twig template class.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
-class Environment extends \Twig_Environment
+class Environment extends TwigEnvironment
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function __construct(Twig_LoaderInterface $loader, array $options = [])
+    public function __construct(LoaderInterface $loader, array $options = [])
     {
         parent::__construct($loader, $options);
         $this->setDefaultEscaperStrategy();
@@ -38,7 +39,7 @@ class Environment extends \Twig_Environment
         try {
             /** @noinspection PhpInternalEntityUsedInspection */
             return parent::loadTemplate($name, $index);
-        } catch (\Twig_Error $e) {
+        } catch (Error $e) {
             if (Craft::$app->getConfig()->getGeneral()->suppressTemplateErrors) {
                 // Just log it and return an empty template
                 Craft::$app->getErrorHandler()->logException($e);
@@ -53,7 +54,7 @@ class Environment extends \Twig_Environment
     /**
      * @inheritdoc
      */
-    public function compileSource(\Twig_Source $source)
+    public function compileSource(Source $source)
     {
         Craft::beginProfile($source->getName(), __METHOD__);
         $result = parent::compileSource($source);
@@ -68,8 +69,8 @@ class Environment extends \Twig_Environment
     public function setDefaultEscaperStrategy($strategy = null)
     {
         // don't have Twig escape HTML by default
-        /** @var \Twig_Extension_Escaper $ext */
-        $ext = $this->getExtension(\Twig_Extension_Escaper::class);
+        /** @var EscaperExtension $ext */
+        $ext = $this->getExtension(EscaperExtension::class);
         $ext->setDefaultStrategy($strategy ?? [$this, 'getDefaultEscaperStrategy']);
     }
 

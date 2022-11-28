@@ -7,42 +7,42 @@
 
 namespace craft\web\twig\nodes;
 
+use Twig\Compiler;
+use Twig\Node\Expression\AbstractExpression;
+use Twig\Node\Expression\AssignNameExpression;
+use Twig\Node\ForNode;
+use Twig\Node\Node;
+
 /**
  * Represents a nav node.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
-class NavNode extends \Twig_Node_For
+class NavNode extends ForNode
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var NavItem_Node|null
      */
     protected $navItemNode;
 
-    // Public Methods
-    // =========================================================================
-
     /**
      * NavNode constructor.
      *
-     * @param \Twig_Node_Expression_AssignName $keyTarget
-     * @param \Twig_Node_Expression_AssignName $valueTarget
-     * @param \Twig_Node_Expression $seq
-     * @param \Twig_Node $upperBody
-     * @param \Twig_Node|null $lowerBody
-     * @param \Twig_Node|null $indent
-     * @param \Twig_Node|null $outdent
+     * @param AssignNameExpression $keyTarget
+     * @param AssignNameExpression $valueTarget
+     * @param AbstractExpression $seq
+     * @param Node $upperBody
+     * @param Node|null $lowerBody
+     * @param Node|null $indent
+     * @param Node|null $outdent
      * @param $lineno
      * @param $tag
      */
-    public function __construct(\Twig_Node_Expression_AssignName $keyTarget, \Twig_Node_Expression_AssignName $valueTarget, \Twig_Node_Expression $seq, \Twig_Node $upperBody, \Twig_Node $lowerBody = null, \Twig_Node $indent = null, \Twig_Node $outdent = null, $lineno, $tag = null)
+    public function __construct(AssignNameExpression $keyTarget, AssignNameExpression $valueTarget, AbstractExpression $seq, Node $upperBody, ?Node $lowerBody, ?Node $indent, ?Node $outdent, $lineno, $tag = null)
     {
         $this->navItemNode = new NavItem_Node($valueTarget, $indent, $outdent, $lowerBody, $lineno, $tag);
-        $body = new \Twig_Node([$this->navItemNode, $upperBody]);
+        $body = new Node([$this->navItemNode, $upperBody]);
 
         parent::__construct($keyTarget, $valueTarget, $seq, null, $body, null, $lineno, $tag);
     }
@@ -50,7 +50,7 @@ class NavNode extends \Twig_Node_For
     /**
      * @inheritdoc
      */
-    public function compile(\Twig_Compiler $compiler)
+    public function compile(Compiler $compiler)
     {
         // Remember what 'nav' was set to before
         $compiler
@@ -88,7 +88,7 @@ class NavNode extends \Twig_Node_For
             ->write("}\n")
             // Close out the last item
             ->write("\$context = \$_contextsByLevel[\$_firstItemLevel];\n")
-            ->subcompile($this->navItemNode->getNode('lower_body'), false)
+            ->subcompile($this->navItemNode->getNode('lower_body'))
             // Set the context back
             ->write("\$context = \$_tmpContext;\n")
             // Unset out variables

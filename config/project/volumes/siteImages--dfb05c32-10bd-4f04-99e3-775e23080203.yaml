@@ -1,0 +1,8 @@
+handle: siteImages
+hasUrls: true
+name: 'Site Images'
+settings:
+  path: '@webroot/uploads/images/site/'
+sortOrder: 4
+type: craft\volumes\Local
+url: /uploads/images/site/

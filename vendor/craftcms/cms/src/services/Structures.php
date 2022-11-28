@@ -8,9 +8,9 @@
 namespace craft\services;
 
 use Craft;
-use craft\base\Element;
 use craft\base\ElementInterface;
 use craft\db\Query;
+use craft\db\Table;
 use craft\errors\StructureNotFoundException;
 use craft\events\MoveElementEvent;
 use craft\models\Structure;
@@ -21,16 +21,14 @@ use yii\base\Exception;
 
 /**
  * Structures service.
- * An instance of the Structures service is globally accessible in Craft via [[\craft\base\ApplicationTrait::getStructures()|`Craft::$app->structures`]].
+ *
+ * An instance of the service is available via [[\craft\base\ApplicationTrait::getStructures()|`Craft::$app->structures`]].
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Structures extends Component
 {
-    // Constants
-    // =========================================================================
-
     /**
      * @event MoveElementEvent The event that is triggered before an element is moved.
      */
@@ -41,21 +39,29 @@ class Structures extends Component
      */
     const EVENT_AFTER_MOVE_ELEMENT = 'afterMoveElement';
 
-    // Properties
-    // =========================================================================
+    /**
+     * @since 3.4.21
+     */
+    const MODE_INSERT = 'insert';
+    /**
+     * @since 3.4.21
+     */
+    const MODE_UPDATE = 'update';
+    /**
+     * @since 3.4.21
+     */
+    const MODE_AUTO = 'auto';
 
     /**
      * @var int The timeout to pass to [[\yii\mutex\Mutex::acquire()]] when acquiring a lock on the structure.
+     * @since 3.0.19
      */
-    public $mutexTimeout = 0;
+    public $mutexTimeout = 3;
 
     /**
      * @var
      */
     private $_rootElementRecordsByStructureId;
-
-    // Public Methods
-    // =========================================================================
 
     // Structure CRUD
     // -------------------------------------------------------------------------
@@ -64,20 +70,123 @@ class Structures extends Component
      * Returns a structure by its ID.
      *
      * @param int $structureId
+     * @param bool $withTrashed
      * @return Structure|null
      */
-    public function getStructureById(int $structureId)
+    public function getStructureById(int $structureId, bool $withTrashed = false)
     {
-        $result = (new Query())
+        $query = (new Query())
             ->select([
                 'id',
                 'maxLevels',
+                'uid',
             ])
-            ->from(['{{%structures}}'])
-            ->where(['id' => $structureId])
-            ->one();
+            ->from([Table::STRUCTURES])
+            ->where(['id' => $structureId]);
 
+        if (!$withTrashed) {
+            $query->andWhere(['dateDeleted' => null]);
+        }
+
+        $result = $query->one();
         return $result ? new Structure($result) : null;
+    }
+
+    /**
+     * Returns a structure by its UID.
+     *
+     * @param string $structureUid
+     * @param bool $withTrashed
+     * @return Structure|null
+     */
+    public function getStructureByUid(string $structureUid, bool $withTrashed = false)
+    {
+        $query = (new Query())
+            ->select([
+                'id',
+                'maxLevels',
+                'uid',
+            ])
+            ->from([Table::STRUCTURES])
+            ->where(['uid' => $structureUid]);
+
+        if (!$withTrashed) {
+            $query->andWhere(['dateDeleted' => null]);
+        }
+
+        $result = $query->one();
+        return $result ? new Structure($result) : null;
+    }
+
+    /**
+     * Patches an array of entries, filling in any gaps in the tree.
+     *
+     * @param ElementInterface[] $elements
+     * @return void
+     * @since 3.6.0
+     */
+    public function fillGapsInElements(array &$elements): void
+    {
+        /** @var ElementInterface|null $prevElement */
+        $prevElement = null;
+        $patchedElements = [];
+
+        foreach ($elements as $i => $element) {
+            // Did we just skip any elements?
+            if (
+                $element->level != 1 &&
+                (
+                    $i == 0 ||
+                    (!$element->isSiblingOf($prevElement) && !$element->isChildOf($prevElement))
+                )
+            ) {
+                // Merge in any missing ancestors
+                $ancestorQuery = $element->getAncestors()
+                    ->anyStatus();
+
+                if ($prevElement) {
+                    $ancestorQuery->andWhere(['>', 'structureelements.lft', $prevElement->lft]);
+                }
+
+                foreach ($ancestorQuery->all() as $ancestor) {
+                    $patchedElements[] = $ancestor;
+                }
+            }
+
+            $patchedElements[] = $element;
+            $prevElement = $element;
+        }
+
+        $elements = $patchedElements;
+    }
+
+    /**
+     * Filters an array of elements down to only <= X branches.
+     *
+     * @param ElementInterface[] $elements
+     * @param int $branchLimit
+     * @return void
+     * @since 3.6.0
+     */
+    public function applyBranchLimitToElements(array &$elements, int $branchLimit): void
+    {
+        $branchCount = 0;
+        $prevElement = null;
+
+        foreach ($elements as $i => $element) {
+            // Is this a new branch?
+            if ($prevElement === null || !$element->isDescendantOf($prevElement)) {
+                $branchCount++;
+
+                // Have we gone over?
+                if ($branchCount > $branchLimit) {
+                    array_splice($elements, $i);
+                    break;
+                }
+            }
+
+            $prevElement = $element;
+        }
     }
 
     /**
@@ -90,7 +199,9 @@ class Structures extends Component
     public function saveStructure(Structure $structure): bool
     {
         if ($structure->id) {
-            $structureRecord = StructureRecord::findOne($structure->id);
+            $structureRecord = StructureRecord::findWithTrashed()
+                ->andWhere(['id' => $structure->id])
+                ->one();
 
             if (!$structureRecord) {
                 throw new StructureNotFoundException("No structure exists with the ID '{$structure->id}'");
@@ -100,8 +211,13 @@ class Structures extends Component
         }
 
         $structureRecord->maxLevels = $structure->maxLevels;
+        $structureRecord->uid = $structure->uid;
 
-        $success = $structureRecord->save();
+        if ($structureRecord->dateDeleted) {
+            $success = $structureRecord->restore();
+        } else {
+            $success = $structureRecord->save();
+        }
 
         if ($success) {
             $structure->id = $structureRecord->id;
@@ -125,11 +241,9 @@ class Structures extends Component
         }
 
         $affectedRows = Craft::$app->getDb()->createCommand()
-            ->delete(
-                '{{%structures}}',
-                [
-                    'id' => $structureId
-                ])
+            ->softDelete(Table::STRUCTURES, [
+                'id' => $structureId,
+            ])
             ->execute();
 
         return (bool)$affectedRows;
@@ -166,12 +280,12 @@ class Structures extends Component
      *
      * @param int $structureId
      * @param ElementInterface $element
-     * @param ElementInterface $parentElement
+     * @param ElementInterface|int $parentElement
      * @param string $mode Whether this is an "insert", "update", or "auto".
      * @return bool
      * @throws Exception
      */
-    public function prepend(int $structureId, ElementInterface $element, ElementInterface $parentElement, string $mode = 'auto'): bool
+    public function prepend(int $structureId, ElementInterface $element, $parentElement, string $mode = self::MODE_AUTO): bool
     {
         $parentElementRecord = $this->_getElementRecord($structureId, $parentElement);
 
@@ -187,12 +301,12 @@ class Structures extends Component
      *
      * @param int $structureId
      * @param ElementInterface $element
-     * @param ElementInterface $parentElement
+     * @param ElementInterface|int $parentElement
      * @param string $mode Whether this is an "insert", "update", or "auto".
      * @return bool
      * @throws Exception
      */
-    public function append(int $structureId, ElementInterface $element, ElementInterface $parentElement, string $mode = 'auto'): bool
+    public function append(int $structureId, ElementInterface $element, $parentElement, string $mode = self::MODE_AUTO): bool
     {
         $parentElementRecord = $this->_getElementRecord($structureId, $parentElement);
 
@@ -212,7 +326,7 @@ class Structures extends Component
      * @return bool
      * @throws Exception
      */
-    public function prependToRoot(int $structureId, ElementInterface $element, string $mode = 'auto'): bool
+    public function prependToRoot(int $structureId, ElementInterface $element, string $mode = self::MODE_AUTO): bool
     {
         $parentElementRecord = $this->_getRootElementRecord($structureId);
 
@@ -232,7 +346,7 @@ class Structures extends Component
      * @return bool
      * @throws Exception
      */
-    public function appendToRoot(int $structureId, ElementInterface $element, string $mode = 'auto'): bool
+    public function appendToRoot(int $structureId, ElementInterface $element, string $mode = self::MODE_AUTO): bool
     {
         $parentElementRecord = $this->_getRootElementRecord($structureId);
 
@@ -248,12 +362,12 @@ class Structures extends Component
      *
      * @param int $structureId
      * @param ElementInterface $element
-     * @param ElementInterface $nextElement
+     * @param ElementInterface|int $nextElement
      * @param string $mode Whether this is an "insert", "update", or "auto".
      * @return bool
      * @throws Exception
      */
-    public function moveBefore(int $structureId, ElementInterface $element, ElementInterface $nextElement, string $mode = 'auto'): bool
+    public function moveBefore(int $structureId, ElementInterface $element, $nextElement, string $mode = self::MODE_AUTO): bool
     {
         $nextElementRecord = $this->_getElementRecord($structureId, $nextElement);
 
@@ -269,12 +383,12 @@ class Structures extends Component
      *
      * @param int $structureId
      * @param ElementInterface $element
-     * @param ElementInterface $prevElement
+     * @param ElementInterface|int $prevElement
      * @param string $mode Whether this is an "insert", "update", or "auto".
      * @return bool
      * @throws Exception
      */
-    public function moveAfter(int $structureId, ElementInterface $element, ElementInterface $prevElement, string $mode = 'auto'): bool
+    public function moveAfter(int $structureId, ElementInterface $element, $prevElement, string $mode = self::MODE_AUTO): bool
     {
         $prevElementRecord = $this->_getElementRecord($structureId, $prevElement);
 
@@ -285,25 +399,46 @@ class Structures extends Component
         return $this->_doIt($structureId, $element, $prevElementRecord, 'insertAfter', $mode);
     }
 
-    // Private Methods
-    // =========================================================================
+    /**
+     * Removes an element from a given structure.
+     *
+     * @param int $structureId
+     * @param ElementInterface $element
+     * @return bool
+     * @throws Exception
+     * @since 3.7.19
+     */
+    public function remove(int $structureId, ElementInterface $element): bool
+    {
+        $elementRecord = $this->_getElementRecord($structureId, $element);
+
+        if ($elementRecord && !$elementRecord->delete()) {
+            return false;
+        }
+
+        $element->root = null;
+        $element->lft = null;
+        $element->rgt = null;
+        $element->level = null;
+
+        return true;
+    }
 
     /**
      * Returns a structure element record from given structure and element IDs.
      *
      * @param int $structureId
-     * @param ElementInterface $element
+     * @param ElementInterface|int $element
      * @return StructureElement|null
      */
-    private function _getElementRecord(int $structureId, ElementInterface $element)
+    private function _getElementRecord(int $structureId, $element)
     {
-        /** @var Element $element */
-        $elementId = $element->id;
+        $elementId = is_numeric($element) ? $element : $element->id;
 
         if ($elementId) {
             return StructureElement::findOne([
                 'structureId' => $structureId,
-                'elementId' => $elementId
+                'elementId' => $elementId,
             ]);
         }
 
@@ -359,14 +494,13 @@ class Structures extends Component
 
         $elementRecord = null;
 
-        /** @var Element $element */
         // Figure out what we're doing
-        if ($mode !== 'insert') {
+        if ($mode !== self::MODE_INSERT) {
             // See if there's an existing structure element record
             $elementRecord = $this->_getElementRecord($structureId, $element);
 
             if ($elementRecord !== null) {
-                $mode = 'update';
+                $mode = self::MODE_UPDATE;
             }
         }
 
@@ -375,10 +509,10 @@ class Structures extends Component
             $elementRecord->structureId = $structureId;
             $elementRecord->elementId = $element->id;
 
-            $mode = 'insert';
+            $mode = self::MODE_INSERT;
         }
 
-        if ($mode === 'update' && $this->hasEventHandlers(self::EVENT_BEFORE_MOVE_ELEMENT)) {
+        if ($mode === self::MODE_UPDATE && $this->hasEventHandlers(self::EVENT_BEFORE_MOVE_ELEMENT)) {
             // Fire a 'beforeMoveElement' event
             $this->trigger(self::EVENT_BEFORE_MOVE_ELEMENT, new MoveElementEvent([
                 'structureId' => $structureId,
@@ -400,11 +534,13 @@ class Structures extends Component
                 return false;
             }
 
+            $mutex->release($lockName);
+
             // Update the element with the latest values.
             // todo: we should be able to pull these from $elementRecord - https://github.com/creocoder/yii2-nested-sets/issues/114
             $values = (new Query())
                 ->select(['root', 'lft', 'rgt', 'level'])
-                ->from('{{%structureelements}}')
+                ->from(Table::STRUCTUREELEMENTS)
                 ->where([
                     'structureId' => $structureId,
                     'elementId' => $element->id,
@@ -426,9 +562,7 @@ class Structures extends Component
             throw $e;
         }
 
-        $mutex->release($lockName);
-
-        if ($mode === 'update' && $this->hasEventHandlers(self::EVENT_AFTER_MOVE_ELEMENT)) {
+        if ($mode === self::MODE_UPDATE && $this->hasEventHandlers(self::EVENT_AFTER_MOVE_ELEMENT)) {
             // Fire an 'afterMoveElement' event
             $this->trigger(self::EVENT_AFTER_MOVE_ELEMENT, new MoveElementEvent([
                 'structureId' => $structureId,

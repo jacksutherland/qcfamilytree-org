@@ -1,0 +1,15 @@
+enableVersioning: true
+handle: blog
+name: Blog
+previewTargets:
+  -
+    label: 'Primary entry page'
+    urlFormat: '{url}'
+propagationMethod: all
+siteSettings:
+  924e2a33-7a89-4e1a-b5d5-99b142c10e0b:
+    enabledByDefault: true
+    hasUrls: true
+    template: blog/_entry
+    uriFormat: 'blog/{slug}'
+type: channel

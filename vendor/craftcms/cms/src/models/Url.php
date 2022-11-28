@@ -14,20 +14,14 @@ use craft\base\Model;
  * URL model.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Url extends Model
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var string|null URL
      */
     public $url;
-
-    // Public Methods
-    // =========================================================================
 
     /**
      * @inheritdoc
@@ -42,11 +36,11 @@ class Url extends Model
     /**
      * @inheritdoc
      */
-    public function rules()
+    protected function defineRules(): array
     {
-        return [
-            [['url'], 'required'],
-            [['url'], 'url'],
-        ];
+        $rules = parent::defineRules();
+        $rules[] = [['url'], 'required'];
+        $rules[] = [['url'], 'url'];
+        return $rules;
     }
 }

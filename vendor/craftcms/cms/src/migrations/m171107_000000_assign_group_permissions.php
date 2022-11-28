@@ -4,6 +4,7 @@ namespace craft\migrations;
 
 use craft\db\Migration;
 use craft\db\Query;
+use craft\db\Table;
 
 /**
  * m171107_000000_assign_group_permissions migration.
@@ -18,15 +19,15 @@ class m171107_000000_assign_group_permissions extends Migration
         // See which users & groups already have the "assignUserPermissions" permission
         $userIds = (new Query())
             ->select(['up_u.userId'])
-            ->from(['{{%userpermissions_users}} up_u'])
-            ->innerJoin('{{%userpermissions}} up', '[[up.id]] = [[up_u.permissionId]]')
+            ->from(['up_u' => Table::USERPERMISSIONS_USERS])
+            ->innerJoin(['up' => Table::USERPERMISSIONS], '[[up.id]] = [[up_u.permissionId]]')
             ->where(['up.name' => 'assignuserpermissions'])
             ->column($this->db);
 
         $groupIds = (new Query())
             ->select(['up_ug.groupId'])
-            ->from(['{{%userpermissions_usergroups}} up_ug'])
-            ->innerJoin('{{%userpermissions}} up', '[[up.id]] = [[up_ug.permissionId]]')
+            ->from(['up_ug' => Table::USERPERMISSIONS_USERGROUPS])
+            ->innerJoin(['up' => Table::USERPERMISSIONS], '[[up.id]] = [[up_ug.permissionId]]')
             ->where(['up.name' => 'assignuserpermissions'])
             ->column($this->db);
 
@@ -37,18 +38,18 @@ class m171107_000000_assign_group_permissions extends Migration
         // Get the user group IDs
         $allGroupIds = (new Query())
             ->select(['id'])
-            ->from(['{{%usergroups}}'])
+            ->from([Table::USERGROUPS])
             ->column();
 
         // Create the new permissions
         $permissionIds = [];
 
-        $this->insert('{{%userpermissions}}', ['name' => 'assignusergroups']);
-        $permissionIds[] = $this->db->getLastInsertID('{{%userpermissions}}');
+        $this->insert(Table::USERPERMISSIONS, ['name' => 'assignusergroups']);
+        $permissionIds[] = $this->db->getLastInsertID(Table::USERPERMISSIONS);
 
         foreach ($allGroupIds as $groupId) {
-            $this->insert('{{%userpermissions}}', ['name' => 'assignusergroup:' . $groupId]);
-            $permissionIds[] = $this->db->getLastInsertID('{{%userpermissions}}');
+            $this->insert(Table::USERPERMISSIONS, ['name' => 'assignusergroup:' . $groupId]);
+            $permissionIds[] = $this->db->getLastInsertID(Table::USERPERMISSIONS);
         }
 
         // Assign the new permissions to the users
@@ -59,7 +60,7 @@ class m171107_000000_assign_group_permissions extends Migration
                     $data[] = [$permissionId, $userId];
                 }
             }
-            $this->batchInsert('{{%userpermissions_users}}', ['permissionId', 'userId'], $data);
+            $this->batchInsert(Table::USERPERMISSIONS_USERS, ['permissionId', 'userId'], $data);
         }
 
         // Assign the new permissions to the groups
@@ -70,7 +71,7 @@ class m171107_000000_assign_group_permissions extends Migration
                     $data[] = [$permissionId, $groupId];
                 }
             }
-            $this->batchInsert('{{%userpermissions_usergroups}}', ['permissionId', 'groupId'], $data);
+            $this->batchInsert(Table::USERPERMISSIONS_USERGROUPS, ['permissionId', 'groupId'], $data);
         }
     }
 

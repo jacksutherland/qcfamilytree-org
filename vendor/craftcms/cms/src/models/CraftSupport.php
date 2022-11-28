@@ -15,13 +15,10 @@ use craft\web\UploadedFile;
  * Class CraftSupport model.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class CraftSupport extends Model
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var string|null From email
      */
@@ -52,15 +49,13 @@ class CraftSupport extends Model
      */
     public $attachment;
 
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
     public function attributeLabels()
     {
         return [
+            'attachment' => Craft::t('app', 'Attachment'),
             'fromEmail' => Craft::t('app', 'Your Email'),
         ];
     }
@@ -68,13 +63,13 @@ class CraftSupport extends Model
     /**
      * @inheritdoc
      */
-    public function rules()
+    protected function defineRules(): array
     {
-        return [
-            [['fromEmail', 'message'], 'required'],
-            [['fromEmail'], 'email'],
-            [['fromEmail'], 'string', 'min' => 5, 'max' => 255],
-            [['attachment'], 'file', 'maxSize' => 3145728],
-        ];
+        $rules = parent::defineRules();
+        $rules[] = [['fromEmail', 'message'], 'required'];
+        $rules[] = [['fromEmail'], 'email'];
+        $rules[] = [['fromEmail'], 'string', 'min' => 5, 'max' => 255];
+        $rules[] = [['attachment'], 'file', 'maxSize' => 3145728];
+        return $rules;
     }
 }

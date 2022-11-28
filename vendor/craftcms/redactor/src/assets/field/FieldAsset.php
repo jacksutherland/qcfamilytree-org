@@ -7,6 +7,9 @@
 
 namespace craft\redactor\assets\field;
 
+use Craft;
+use craft\base\ElementInterface;
+use craft\helpers\Json;
 use craft\redactor\assets\redactor\RedactorAsset;
 use craft\web\AssetBundle;
 use craft\web\assets\cp\CpAsset;
@@ -20,31 +23,35 @@ class FieldAsset extends AssetBundle
     /**
      * @inheritdoc
      */
-    public function init()
-    {
-        $this->sourcePath = __DIR__.'/dist';
+    public $depends = [
+        CpAsset::class,
+        RedactorAsset::class,
+    ];
 
-        $this->depends = [
-            CpAsset::class,
-            RedactorAsset::class,
-        ];
+    /**
+     * @inheritdoc
+     */
+    public $sourcePath = __DIR__ . '/dist';
 
-        $this->js = [
-            'js/PluginBase'.$this->dotJs(),
-            'js/CraftAssetImageEditor'.$this->dotJs(),
-            'js/CraftAssetImages'.$this->dotJs(),
-            'js/CraftAssetFiles'.$this->dotJs(),
-            'js/CraftEntryLinks'.$this->dotJs(),
-            'js/RedactorInput'.$this->dotJs(),
-            'js/RedactorOverrides'.$this->dotJs(),
-        ];
+    /**
+     * @inheritdoc
+     */
+    public $css = [
+        'css/RedactorInput.css',
+    ];
 
-        $this->css = [
-            'css/RedactorInput.min.css',
-        ];
-
-        parent::init();
-    }
+    /**
+     * @inheritdoc
+     */
+    public $js = [
+        'PluginBase.js',
+        'CraftAssetImageEditor.js',
+        'CraftAssetImages.js',
+        'CraftAssetFiles.js',
+        'CraftElementLinks.js',
+        'RedactorInput.js',
+        'RedactorOverrides.js',
+    ];
 
     /**
      * @inheritdoc
@@ -54,17 +61,25 @@ class FieldAsset extends AssetBundle
         parent::registerAssetFiles($view);
 
         if ($view instanceof View) {
-            $view->registerTranslations('app', [
-                'Insert image',
-                'Insert URL',
-                'Choose image',
-                'Link',
-                'Link to an entry',
-                'Insert link',
-                'Unlink',
-                'Link to an asset',
-                'Link to a category',
+            $view->registerTranslations('redactor', [
+                'Link to the current site',
             ]);
         }
+
+        $refHandles = [];
+        foreach (Craft::$app->getElements()->getAllElementTypes() as $elementType) {
+            /** @var string|ElementInterface $elementType */
+            if ($elementType::isLocalized() && ($refHandle = $elementType::refHandle()) !== null) {
+                $refHandles[] = $refHandle;
+            }
+        }
+        $refHandlesJson = Json::encode($refHandles);
+
+        $js = <<<JS
+window.Craft.Redactor = {
+  localizedRefHandles: $refHandlesJson,
+};
+JS;
+        $view->registerJs($js, View::POS_HEAD);
     }
 }

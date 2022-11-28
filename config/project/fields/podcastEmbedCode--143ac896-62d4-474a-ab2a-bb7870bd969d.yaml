@@ -1,0 +1,16 @@
+contentColumnType: text
+fieldGroup: 8f34b7f7-ccaf-4579-9b50-ed681ffe57ac
+handle: podcastEmbedCode
+instructions: 'From https://hereforgood.podbean.com click the share button on the podcast you want to display. Click embed tab, and copy/paste the embed code into this field.'
+name: 'Podcast Embed Code'
+searchable: true
+settings:
+  charLimit: ''
+  code: ''
+  columnType: text
+  initialRows: '3'
+  multiline: '1'
+  placeholder: ''
+translationKeyFormat: null
+translationMethod: none
+type: craft\fields\PlainText

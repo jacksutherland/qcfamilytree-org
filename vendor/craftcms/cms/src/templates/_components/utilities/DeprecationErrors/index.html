@@ -1,12 +1,14 @@
 {% if logs %}
     <div class="buttons first">
-        <div id="clearall" class="btn submit">{{ "Clear all"|t('app') }}</div>
+        <button type="button" id="clearall" class="btn submit">{{ "Clear all"|t('app') }}</button>
     </div>
 {% endif %}
 
 
 <div class="readable">
-    <p id="nologs"{% if logs %} class="hidden"{% endif %}>{{ "No deprecation errors to report!"|t('app') }}</p>
+    <p id="nologs" class="zilch{% if logs %} hidden{% endif %}">
+        {{ "No deprecation errors to report!"|t('app') }}
+    </p>
 
     {% if logs %}
         <table id="deprecationerrors" class="data fullwidth fixed-layout">
@@ -22,7 +24,7 @@
             <tbody>
             {% for log in logs %}
                 <tr data-id="{{ log.id }}">
-                    <td>{{ log.message|raw }}</td>
+                    <td>{{ log.message|e|md(inlineOnly=true)|raw }}</td>
                     <td class="code">
                         {{- log.file|e|replace('/', '/<wbr>')|raw }}
                         {%- if log.line -%}
@@ -31,7 +33,7 @@
                     </td>
                     <td>{{ log.lastOccurrence|timestamp }}</td>
                     <td class="nowrap viewtraces"><a role="button">{{ "Stack Trace"|t('app') }}</a></td>
-                    <td><a class="delete icon" title="{{ 'Delete'|t('app') }}" role="button"></a></td>
+                    <td><a class="delete icon" title="{{ 'Delete'|t('app') }}" aria-label="{{ 'Delete'|t('app') }}" role="button"></a></td>
                 </tr>
             {% endfor %}
             </tbody>

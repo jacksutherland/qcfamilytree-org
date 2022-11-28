@@ -14,13 +14,10 @@ use craft\base\Model;
  * Class Info model.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Info extends Model
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var int|null ID
      */
@@ -37,26 +34,6 @@ class Info extends Model
     public $schemaVersion = '0';
 
     /**
-     * @var int Edition
-     */
-    public $edition = Craft::Solo;
-
-    /**
-     * @var string System name
-     */
-    public $name = '';
-
-    /**
-     * @var string Timezone
-     */
-    public $timezone = 'America/Los_Angeles';
-
-    /**
-     * @var bool On
-     */
-    public $on = false;
-
-    /**
      * @var bool Maintenance
      */
     public $maintenance = false;
@@ -68,8 +45,14 @@ class Info extends Model
 
     /**
      * @var string Field version
+     * @since 3.5.6
      */
-    public $fieldVersion = '000000000000';
+    public $configVersion = '000000000000';
+
+    /**
+     * @var string|null Field version
+     */
+    public $fieldVersion;
 
     /**
      * @var \DateTime|null Date updated
@@ -81,31 +64,61 @@ class Info extends Model
      */
     public $dateCreated;
 
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function init()
+    protected function defineRules(): array
     {
-        parent::init();
+        $rules = parent::defineRules();
+        $rules[] = [['id'], 'number', 'integerOnly' => true];
+        $rules[] = [['version', 'schemaVersion'], 'required'];
+        return $rules;
+    }
 
-        // Make sure $edition is going to be an int
-        if (is_string($this->edition)) {
-            $this->edition = (int)$this->edition;
-        }
+    // Deprecated
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the active Craft edition.
+     *
+     * @return int
+     * @deprecated in 3.1.0. Use `Craft::$app->getEdition()` instead.
+     */
+    public function getEdition(): int
+    {
+        return Craft::$app->getEdition();
     }
 
     /**
-     * @inheritdoc
+     * Returns the system name.
+     *
+     * @return string
+     * @deprecated in 3.1.0. Use `Craft::$app->getSystemName()` instead.
      */
-    public function rules()
+    public function getName(): string
     {
-        return [
-            [['id', 'edition'], 'number', 'integerOnly' => true],
-            [['version', 'schemaVersion', 'edition', 'name'], 'required'],
-            [['timezone'], 'string', 'max' => 30],
-        ];
+        return Craft::$app->getSystemName();
+    }
+
+    /**
+     * Returns the system time zone.
+     *
+     * @return string
+     * @deprecated in 3.1.0. Use `Craft::$app->getTimeZone()` instead.
+     */
+    public function getTimezone(): string
+    {
+        return Craft::$app->getTimeZone();
+    }
+
+    /**
+     * Returns whether the system is currently live.
+     *
+     * @return bool
+     * @deprecated in 3.1.0. Use `Craft::$app->getIsLive()` instead.
+     */
+    public function getOn(): bool
+    {
+        return Craft::$app->getIsLive();
     }
 }

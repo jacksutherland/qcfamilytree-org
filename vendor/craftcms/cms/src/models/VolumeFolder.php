@@ -11,18 +11,16 @@ use Craft;
 use craft\base\Model;
 use craft\base\VolumeInterface;
 use craft\volumes\Temp;
+use yii\base\InvalidConfigException;
 
 /**
  * The VolumeFolder model class.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class VolumeFolder extends Model
 {
-    // Properties
-    // =========================================================================
-
     /**
      * @var int|null ID
      */
@@ -48,23 +46,24 @@ class VolumeFolder extends Model
      */
     public $path;
 
+    /**
+     * @var string|null UID
+     */
+    public $uid;
 
     /**
      * @var VolumeFolder[]|null
      */
     private $_children;
 
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function rules()
+    protected function defineRules(): array
     {
-        return [
-            [['id', 'parentId', 'volumeId'], 'number', 'integerOnly' => true],
-        ];
+        $rules = parent::defineRules();
+        $rules[] = [['id', 'parentId', 'volumeId'], 'number', 'integerOnly' => true];
+        return $rules;
     }
 
     /**
@@ -74,19 +73,24 @@ class VolumeFolder extends Model
      */
     public function __toString(): string
     {
-        return (string)$this->name;
+        return (string)$this->name ?: static::class;
     }
 
     /**
-     * @return VolumeInterface|null
+     * @return VolumeInterface
+     * @throws InvalidConfigException if [[volumeId]] is invalid
      */
-    public function getVolume()
+    public function getVolume(): VolumeInterface
     {
         if ($this->volumeId === null) {
             return new Temp();
         }
 
-        return Craft::$app->getVolumes()->getVolumeById($this->volumeId);
+        if (($volume = Craft::$app->getVolumes()->getVolumeById($this->volumeId)) === null) {
+            throw new InvalidConfigException('Invalid volume ID: ' . $this->volumeId);
+        }
+
+        return $volume;
     }
 
     /**

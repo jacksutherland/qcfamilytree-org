@@ -8,36 +8,38 @@
 namespace craft\services;
 
 use Craft;
-use craft\base\Plugin;
 use craft\base\PluginInterface;
 use craft\db\MigrationManager;
 use craft\db\Query;
+use craft\db\Table;
 use craft\enums\LicenseKeyStatus;
 use craft\errors\InvalidLicenseKeyException;
 use craft\errors\InvalidPluginException;
 use craft\events\PluginEvent;
+use craft\helpers\App;
 use craft\helpers\ArrayHelper;
 use craft\helpers\DateTimeHelper;
 use craft\helpers\Db;
 use craft\helpers\FileHelper;
 use craft\helpers\Json;
+use craft\helpers\ProjectConfig as ProjectConfigHelper;
+use craft\helpers\StringHelper;
 use yii\base\Component;
+use yii\base\InvalidArgumentException;
 use yii\db\Exception;
 use yii\helpers\Inflector;
 use yii\web\HttpException;
 
 /**
  * The Plugins service provides APIs for managing plugins.
- * An instance of the Plugins service is globally accessible in Craft via [[\craft\base\ApplicationTrait::getPlugins()|`Craft::$app->plugins`]].
+ *
+ * An instance of the service is available via [[\craft\base\ApplicationTrait::getPlugins()|`Craft::$app->plugins`]].
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Plugins extends Component
 {
-    // Constants
-    // =========================================================================
-
     /**
      * @event \yii\base\Event The event that is triggered before any plugins have been loaded
      */
@@ -53,7 +55,7 @@ class Plugins extends Component
      */
     const EVENT_BEFORE_ENABLE_PLUGIN = 'beforeEnablePlugin';
     /**
-     * @event PluginEvent The event that is triggered before a plugin is enabled
+     * @event PluginEvent The event that is triggered after a plugin is enabled
      */
     const EVENT_AFTER_ENABLE_PLUGIN = 'afterEnablePlugin';
 
@@ -62,7 +64,7 @@ class Plugins extends Component
      */
     const EVENT_BEFORE_DISABLE_PLUGIN = 'beforeDisablePlugin';
     /**
-     * @event PluginEvent The event that is triggered before a plugin is disabled
+     * @event PluginEvent The event that is triggered after a plugin is disabled
      */
     const EVENT_AFTER_DISABLE_PLUGIN = 'afterDisablePlugin';
 
@@ -72,7 +74,7 @@ class Plugins extends Component
     const EVENT_BEFORE_INSTALL_PLUGIN = 'beforeInstallPlugin';
 
     /**
-     * @event PluginEvent The event that is triggered before a plugin is installed
+     * @event PluginEvent The event that is triggered after a plugin is installed
      */
     const EVENT_AFTER_INSTALL_PLUGIN = 'afterInstallPlugin';
 
@@ -82,7 +84,7 @@ class Plugins extends Component
     const EVENT_BEFORE_UNINSTALL_PLUGIN = 'beforeUninstallPlugin';
 
     /**
-     * @event PluginEvent The event that is triggered before a plugin is uninstalled
+     * @event PluginEvent The event that is triggered after a plugin is uninstalled
      */
     const EVENT_AFTER_UNINSTALL_PLUGIN = 'afterUninstallPlugin';
 
@@ -92,12 +94,17 @@ class Plugins extends Component
     const EVENT_BEFORE_SAVE_PLUGIN_SETTINGS = 'beforeSavePluginSettings';
 
     /**
-     * @event PluginEvent The event that is triggered before a plugin's settings are saved
+     * @event PluginEvent The event that is triggered after a plugin's settings are saved
      */
     const EVENT_AFTER_SAVE_PLUGIN_SETTINGS = 'afterSavePluginSettings';
 
-    // Properties
-    // =========================================================================
+    const CONFIG_PLUGINS_KEY = 'plugins';
+
+    /**
+     * @var array[] Custom plugin configurations.
+     * @since 3.4.0
+     */
+    public $pluginConfigs;
 
     /**
      * @var bool Whether plugins have been loaded yet for this request
@@ -120,28 +127,29 @@ class Plugins extends Component
     private $_composerPluginInfo;
 
     /**
-     * @var array|null All of the stored info for enabled plugins, indexed by handles
+     * @var array All of the stored info for plugins (enabled or disabled), indexed by handles
+     * @see getStoredPluginInfo()
      */
-    private $_enabledPluginInfo;
+    private $_storedPluginInfo;
 
     /**
-     * @var array|null All of the stored info for disabled plugins, indexed by handles
+     * @var string[]|string|null Any plugin handles that must be disabled per the `disablePlugins` config setting
      */
-    private $_disabledPluginInfo;
+    private $_forceDisabledPlugins;
 
     /**
      * @var string[] Cache for [[getPluginHandleByClass()]]
      */
     private $_classPluginHandles = [];
 
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
     public function init()
     {
+        $generalConfig = Craft::$app->getConfig()->getGeneral();
+        $this->_forceDisabledPlugins = is_array($generalConfig->disabledPlugins) ? array_flip($generalConfig->disabledPlugins) : $generalConfig->disabledPlugins;
+
         $this->_composerPluginInfo = [];
 
         $path = Craft::$app->getVendorPath() . DIRECTORY_SEPARATOR . 'craftcms' . DIRECTORY_SEPARATOR . 'plugins.php';
@@ -154,7 +162,12 @@ class Plugins extends Component
                 $plugin['packageName'] = $packageName;
                 // Normalize the base path (and find the actual path, not a possibly-symlinked path)
                 if (isset($plugin['basePath'])) {
-                    $plugin['basePath'] = FileHelper::normalizePath(realpath($plugin['basePath']));
+                    if (($basePath = realpath($plugin['basePath'])) !== false) {
+                        $plugin['basePath'] = FileHelper::normalizePath($basePath);
+                    } else {
+                        Craft::warning("Invalid plugin base path: {$plugin['basePath']}", __METHOD__);
+                        unset($plugin['basePath']);
+                    }
                 }
                 $handle = $this->_normalizeHandle(ArrayHelper::remove($plugin, 'handle'));
                 $this->_composerPluginInfo[$handle] = $plugin;
@@ -182,18 +195,38 @@ class Plugins extends Component
         // Find all of the installed plugins
         // todo: remove try/catch after next breakpoint
         try {
-            $this->_enabledPluginInfo = $this->_createPluginQuery()
-                ->where(['enabled' => true])
+            $pluginInfo = $this->_createPluginQuery()
+                ->orderBy(['handle' => SORT_ASC])
                 ->indexBy('handle')
                 ->all();
         } catch (Exception $e) {
-            $this->_enabledPluginInfo = [];
+            $pluginInfo = [];
         }
 
-        foreach ($this->_enabledPluginInfo as $handle => &$row) {
+        $this->_storedPluginInfo = [];
+
+        foreach ($pluginInfo as $handle => $row) {
+            try {
+                $configData = $this->_getPluginConfigData($handle);
+            } catch (InvalidPluginException $e) {
+                continue;
+            }
+
             // Clean up the row data
-            $row['settings'] = Json::decode($row['settings']);
+            $row['edition'] = $configData['edition'] ?? null;
+            $row['settings'] = $configData['settings'] ?? [];
+            $row['licenseKey'] = $configData['licenseKey'] ?? null;
+            $row['enabled'] = !empty($configData['enabled']);
             $row['installDate'] = DateTimeHelper::toDateTime($row['installDate']);
+
+            $this->_storedPluginInfo[$handle] = $row;
+        }
+
+        foreach ($this->_storedPluginInfo as $handle => $row) {
+            // Skip disabled plugins
+            if (!$row['enabled']) {
+                continue;
+            }
 
             try {
                 $plugin = $this->createPlugin($handle, $row);
@@ -202,29 +235,31 @@ class Plugins extends Component
             }
 
             if ($plugin !== null) {
+                $hasVersionChanged = $this->hasPluginVersionNumberChanged($plugin);
+
+                // If the plugin’s version just changed, make sure the old version is >= the min allowed version
+                if (
+                    $hasVersionChanged &&
+                    $plugin->minVersionRequired &&
+                    strpos($row['version'], 'dev-') !== 0 &&
+                    !StringHelper::endsWith($row['version'], '-dev') &&
+                    version_compare($row['version'], $plugin->minVersionRequired, '<')
+                ) {
+                    throw new HttpException(200, Craft::t('app', 'You need to be on at least {plugin} {version} before you can update to {plugin} {targetVersion}.', [
+                        'version' => $plugin->minVersionRequired,
+                        'targetVersion' => $plugin->version,
+                        'plugin' => $plugin->name,
+                    ]));
+                }
+
                 // If we're not updating, check if the plugin's version number changed, but not its schema version.
-                if (!Craft::$app->getIsInMaintenanceMode() && $this->hasPluginVersionNumberChanged($plugin) && !$this->doesPluginRequireDatabaseUpdate($plugin)) {
-
-                    /** @var Plugin $plugin */
-                    if (
-                        $plugin->minVersionRequired &&
-                        strpos($row['version'], 'dev-') !== 0 &&
-                        version_compare($row['version'], $plugin->minVersionRequired, '<')
-                    ) {
-                        throw new HttpException(200, Craft::t('app', 'You need to be on at least {plugin} {version} before you can update to {plugin} {targetVersion}.', [
-                            'version' => $plugin->minVersionRequired,
-                            'targetVersion' => $plugin->version,
-                            'plugin' => $plugin->name
-                        ]));
-                    }
-
+                if (!Craft::$app->getIsInMaintenanceMode() && $hasVersionChanged && !$this->doesPluginRequireDatabaseUpdate($plugin)) {
                     // Update our record of the plugin's version number
-                    Craft::$app->getDb()->createCommand()
-                        ->update(
-                            '{{%plugins}}',
-                            ['version' => $plugin->getVersion()],
-                            ['id' => $row['id']])
-                        ->execute();
+                    Db::update(Table::PLUGINS, [
+                        'version' => $plugin->getVersion(),
+                    ], [
+                        'id' => $row['id'],
+                    ]);
                 }
 
                 $this->_registerPlugin($plugin);
@@ -232,9 +267,8 @@ class Plugins extends Component
         }
         unset($row);
 
-        // Sort plugins by their names
-        $names = array_column($this->_plugins, 'name');
-        array_multisort($names, SORT_NATURAL | SORT_FLAG_CASE, $this->_plugins);
+        // Sort enabled plugins by their names
+        ArrayHelper::multisort($this->_plugins, 'name', SORT_ASC, SORT_NATURAL | SORT_FLAG_CASE);
 
         $this->_loadingPlugins = false;
         $this->_pluginsLoaded = true;
@@ -283,7 +317,6 @@ class Plugins extends Component
         $this->loadPlugins();
 
         foreach ($this->_plugins as $plugin) {
-            /** @var Plugin $plugin */
             if ($plugin->packageName === $packageName) {
                 return $plugin;
             }
@@ -360,21 +393,20 @@ class Plugins extends Component
         // Fire a 'beforeEnablePlugin' event
         if ($this->hasEventHandlers(self::EVENT_BEFORE_ENABLE_PLUGIN)) {
             $this->trigger(self::EVENT_BEFORE_ENABLE_PLUGIN, new PluginEvent([
-                'plugin' => $plugin
+                'plugin' => $plugin,
             ]));
         }
 
-        Craft::$app->getDb()->createCommand()
-            ->update('{{%plugins}}', ['enabled' => true], ['id' => $info['id']])
-            ->execute();
+        // Enable the plugin in the project config
+        Craft::$app->getProjectConfig()->set(self::CONFIG_PLUGINS_KEY . '.' . $handle . '.enabled', true, "Enable plugin “{$handle}”");
 
-        $this->_enabledPluginInfo[$handle] = $info;
+        $this->_storedPluginInfo[$handle]['enabled'] = true;
         $this->_registerPlugin($plugin);
 
         // Fire an 'afterEnablePlugin' event
         if ($this->hasEventHandlers(self::EVENT_AFTER_ENABLE_PLUGIN)) {
             $this->trigger(self::EVENT_AFTER_ENABLE_PLUGIN, new PluginEvent([
-                'plugin' => $plugin
+                'plugin' => $plugin,
             ]));
         }
 
@@ -406,21 +438,20 @@ class Plugins extends Component
         // Fire a 'beforeDisablePlugin' event
         if ($this->hasEventHandlers(self::EVENT_BEFORE_DISABLE_PLUGIN)) {
             $this->trigger(self::EVENT_BEFORE_DISABLE_PLUGIN, new PluginEvent([
-                'plugin' => $plugin
+                'plugin' => $plugin,
             ]));
         }
 
-        Craft::$app->getDb()->createCommand()
-            ->update('{{%plugins}}', ['enabled' => false], ['handle' => $handle])
-            ->execute();
+        // Disable the plugin in the project config
+        Craft::$app->getProjectConfig()->set(self::CONFIG_PLUGINS_KEY . '.' . $handle . '.enabled', false, "Disable plugin “{$handle}”");
 
-        unset($this->_enabledPluginInfo[$handle]);
+        $this->_storedPluginInfo[$handle]['enabled'] = false;
         $this->_unregisterPlugin($plugin);
 
         // Fire an 'afterDisablePlugin' event
         if ($this->hasEventHandlers(self::EVENT_AFTER_DISABLE_PLUGIN)) {
             $this->trigger(self::EVENT_AFTER_DISABLE_PLUGIN, new PluginEvent([
-                'plugin' => $plugin
+                'plugin' => $plugin,
             ]));
         }
 
@@ -431,11 +462,12 @@ class Plugins extends Component
      * Installs a plugin by its handle.
      *
      * @param string $handle The plugin’s handle
+     * @param string|null $edition The plugin’s edition
      * @return bool Whether the plugin was installed successfully.
      * @throws InvalidPluginException if the plugin doesn’t exist
      * @throws \Throwable if reasons
      */
-    public function installPlugin(string $handle): bool
+    public function installPlugin(string $handle, string $edition = null): bool
     {
         $this->loadPlugins();
 
@@ -444,37 +476,72 @@ class Plugins extends Component
             return true;
         }
 
-        /** @var Plugin $plugin */
+        // Temporarily allow changes to the project config even if it's supposed to be read only
+        $projectConfig = Craft::$app->getProjectConfig();
+        $readOnly = $projectConfig->readOnly;
+        $projectConfig->readOnly = false;
+
+        $configKey = self::CONFIG_PLUGINS_KEY . '.' . $handle;
+
         $plugin = $this->createPlugin($handle);
+
+        if ($plugin === null) {
+            throw new InvalidPluginException($handle);
+        }
+
+        // Set the edition
+        if ($edition === null) {
+            // See if one is already set in the project config
+            $edition = $projectConfig->get($configKey . '.edition');
+        }
+        $editions = $plugin::editions();
+        if ($edition === null || !in_array($edition, $editions, true)) {
+            $edition = reset($editions);
+        }
+        $plugin->edition = $edition;
 
         // Fire a 'beforeInstallPlugin' event
         if ($this->hasEventHandlers(self::EVENT_BEFORE_INSTALL_PLUGIN)) {
             $this->trigger(self::EVENT_BEFORE_INSTALL_PLUGIN, new PluginEvent([
-                'plugin' => $plugin
+                'plugin' => $plugin,
             ]));
         }
 
-        $transaction = Craft::$app->getDb()->beginTransaction();
+        $db = Craft::$app->getDb();
+        $transaction = $db->beginTransaction();
         try {
             $info = [
                 'handle' => $handle,
                 'version' => $plugin->getVersion(),
                 'schemaVersion' => $plugin->schemaVersion,
-                'enabled' => true,
                 'installDate' => Db::prepareDateForDb(new \DateTime()),
             ];
 
-            Craft::$app->getDb()->createCommand()
-                ->insert('{{%plugins}}', $info)
-                ->execute();
+            // Make sure the plugin doesn't have a row in the `plugins` or `migrations` tables first, just in case
+            Db::delete(Table::PLUGINS, [
+                'handle' => $handle,
+            ]);
+            Db::delete(Table::MIGRATIONS, [
+                'track' => "plugin:$handle",
+            ]);
 
+            Db::insert(Table::PLUGINS, $info);
+
+            $info['enabled'] = $projectConfig->get($configKey . '.enabled') ?? true;
             $info['installDate'] = DateTimeHelper::toDateTime($info['installDate']);
-            $info['id'] = Craft::$app->getDb()->getLastInsertID('{{%plugins}}');
+            $info['id'] = $db->getLastInsertID(Table::PLUGINS);
 
-            $this->_setPluginMigrator($plugin, $info['id']);
+            $this->_setPluginMigrator($plugin);
 
             if ($plugin->install() === false) {
                 $transaction->rollBack();
+
+                if ($db->getIsMysql()) {
+                    // Explicitly remove the plugins row just in case the transaction was implicitly committed
+                    Db::delete(Table::PLUGINS, [
+                        'handle' => $handle,
+                    ]);
+                }
 
                 return false;
             }
@@ -482,19 +549,31 @@ class Plugins extends Component
             $transaction->commit();
         } catch (\Throwable $e) {
             $transaction->rollBack();
-
             throw $e;
         }
 
-        $this->_enabledPluginInfo[$handle] = $info;
+        // Add the plugin to the project config
+        if (!$projectConfig->get($configKey, true)) {
+            $pluginData = [
+                'edition' => $edition,
+                'enabled' => true,
+                'schemaVersion' => $plugin->schemaVersion,
+            ];
+
+            $projectConfig->set($configKey, $pluginData, "Install plugin “{$handle}”");
+        }
+
+        $this->_storedPluginInfo[$handle] = $info;
         $this->_registerPlugin($plugin);
 
         // Fire an 'afterInstallPlugin' event
         if ($this->hasEventHandlers(self::EVENT_AFTER_INSTALL_PLUGIN)) {
             $this->trigger(self::EVENT_AFTER_INSTALL_PLUGIN, new PluginEvent([
-                'plugin' => $plugin
+                'plugin' => $plugin,
             ]));
         }
+
+        $projectConfig->readOnly = $readOnly;
 
         return true;
     }
@@ -503,51 +582,65 @@ class Plugins extends Component
      * Uninstalls a plugin by its handle.
      *
      * @param string $handle The plugin’s handle
+     * @param bool $force Whether to force the plugin uninstallation, even if it is disabled, its
+     * `uninstall()` method returns `false`, or its files aren’t present
      * @return bool Whether the plugin was uninstalled successfully
      * @throws InvalidPluginException if the plugin doesn’t exist
      * @throws \Throwable if reasons
      */
-    public function uninstallPlugin(string $handle): bool
+    public function uninstallPlugin(string $handle, bool $force = false): bool
     {
         $this->loadPlugins();
 
-        if (!$this->isPluginEnabled($handle)) {
-            // Don't allow uninstalling disabled plugins, because that could be buggy
-            // if the plugin was composer-updated while disabled, and its uninstall()
-            // function is out of sync with what's actually in the database
-            if ($this->isPluginInstalled($handle)) {
-                throw new InvalidPluginException($handle, 'Uninstalling disabled plugins is not allowed.');
-            }
+        if (!$this->isPluginInstalled($handle)) {
             // It's already uninstalled
             return true;
         }
 
-        if (($plugin = $this->getPlugin($handle)) === null) {
+        $enabled = $this->isPluginEnabled($handle);
+
+        if (!$enabled && !$force) {
+            // Don't allow uninstalling disabled plugins, because that could be buggy
+            // if the plugin was composer-updated while disabled, and its uninstall()
+            // function is out of sync with what's actually in the database
+            throw new InvalidPluginException($handle, 'Uninstalling disabled plugins is not allowed.');
+        }
+
+        // Temporarily allow changes to the project config even if it's supposed to be read only
+        $projectConfig = Craft::$app->getProjectConfig();
+        $readOnly = $projectConfig->readOnly;
+        $projectConfig->readOnly = false;
+
+        if (($plugin = $this->getPlugin($handle)) === null && !$force) {
             throw new InvalidPluginException($handle);
         }
 
         // Fire a 'beforeUninstallPlugin' event
-        if ($this->hasEventHandlers(self::EVENT_BEFORE_UNINSTALL_PLUGIN)) {
+        if ($plugin && $this->hasEventHandlers(self::EVENT_BEFORE_UNINSTALL_PLUGIN)) {
             $this->trigger(self::EVENT_BEFORE_UNINSTALL_PLUGIN, new PluginEvent([
-                'plugin' => $plugin
+                'plugin' => $plugin,
             ]));
         }
 
         $transaction = Craft::$app->getDb()->beginTransaction();
         try {
             // Let the plugin uninstall itself first
-            if ($plugin->uninstall() === false) {
+            if ($plugin && $enabled && ($plugin->uninstall() === false) && !$force) {
                 $transaction->rollBack();
-
                 return false;
             }
 
             // Clean up the plugins and migrations tables
-            $id = $this->getStoredPluginInfo($handle)['id'];
+            $info = $this->getStoredPluginInfo($handle);
+            if ($info !== null) {
+                Db::delete(Table::PLUGINS, [
+                    'id' => $info['id'],
+                ]);
+            }
 
-            Craft::$app->getDb()->createCommand()
-                ->delete('{{%plugins}}', ['id' => $id])
-                ->execute();
+            Db::delete(Table::MIGRATIONS, [
+                'track' => "plugin:$handle",
+            ]);
 
             $transaction->commit();
         } catch (\Throwable $e) {
@@ -556,17 +649,61 @@ class Plugins extends Component
             throw $e;
         }
 
-        $this->_unregisterPlugin($plugin);
-        unset($this->_enabledPluginInfo[$handle]);
+        // Remove the plugin from the project config
+        if ($projectConfig->get(self::CONFIG_PLUGINS_KEY . '.' . $handle, true)) {
+            $projectConfig->remove(self::CONFIG_PLUGINS_KEY . '.' . $handle, "Uninstall the “{$handle}” plugin");
+        }
+
+        if ($plugin) {
+            $this->_unregisterPlugin($plugin);
+        }
+
+        unset($this->_storedPluginInfo[$handle]);
 
         // Fire an 'afterUninstallPlugin' event
-        if ($this->hasEventHandlers(self::EVENT_AFTER_UNINSTALL_PLUGIN)) {
+        if ($plugin && $this->hasEventHandlers(self::EVENT_AFTER_UNINSTALL_PLUGIN)) {
             $this->trigger(self::EVENT_AFTER_UNINSTALL_PLUGIN, new PluginEvent([
-                'plugin' => $plugin
+                'plugin' => $plugin,
             ]));
         }
 
+        $projectConfig->readOnly = $readOnly;
+
         return true;
+    }
+
+    /**
+     * Switches a plugin’s edition.
+     *
+     * @param string $handle The plugin’s handle
+     * @param string $edition The plugin’s edition
+     * @throws InvalidPluginException if the plugin doesn’t exist
+     * @throws InvalidArgumentException if $edition is invalid
+     * @throws \Throwable if reasons
+     */
+    public function switchEdition(string $handle, string $edition)
+    {
+        $info = $this->getPluginInfo($handle);
+
+        /** @var string|PluginInterface $class */
+        $class = $info['class'];
+
+        if (!in_array($edition, $class::editions(), true)) {
+            throw new InvalidArgumentException('Invalid plugin edition: ' . $edition);
+        }
+
+        // Update the project config
+        Craft::$app->getProjectConfig()->set(self::CONFIG_PLUGINS_KEY . '.' . $handle . '.edition', $edition, "Switch edition for plugin “{$handle}”");
+
+        if (isset($this->_storedPluginInfo[$handle])) {
+            $this->_storedPluginInfo[$handle]['edition'] = $edition;
+        }
+
+        // If it's installed, update the instance and our locally stored info
+        $plugin = $this->getPlugin($handle);
+        if ($plugin !== null) {
+            $plugin->edition = $edition;
+        }
     }
 
     /**
@@ -578,7 +715,6 @@ class Plugins extends Component
      */
     public function savePluginSettings(PluginInterface $plugin, array $settings): bool
     {
-        /** @var Plugin $plugin */
         // Save the settings on the plugin
         $plugin->getSettings()->setAttributes($settings, false);
 
@@ -590,7 +726,7 @@ class Plugins extends Component
         // Fire a 'beforeSavePluginSettings' event
         if ($this->hasEventHandlers(self::EVENT_BEFORE_SAVE_PLUGIN_SETTINGS)) {
             $this->trigger(self::EVENT_BEFORE_SAVE_PLUGIN_SETTINGS, new PluginEvent([
-                'plugin' => $plugin
+                'plugin' => $plugin,
             ]));
         }
 
@@ -598,23 +734,21 @@ class Plugins extends Component
             return false;
         }
 
-        $affectedRows = Craft::$app->getDb()->createCommand()
-            ->update(
-                '{{%plugins}}',
-                ['settings' => Json::encode($plugin->getSettings())],
-                ['handle' => $plugin->id])
-            ->execute();
+        // Update the plugin's settings in the project config
+        $pluginSettings = $plugin->getSettings();
+        $pluginSettings = $pluginSettings ? ProjectConfigHelper::packAssociativeArrays($pluginSettings->toArray()) : [];
+        Craft::$app->getProjectConfig()->set(self::CONFIG_PLUGINS_KEY . '.' . $plugin->handle . '.settings', $pluginSettings, "Change settings for plugin “{$plugin->handle}”");
 
         $plugin->afterSaveSettings();
 
         // Fire an 'afterSavePluginSettings' event
         if ($this->hasEventHandlers(self::EVENT_AFTER_SAVE_PLUGIN_SETTINGS)) {
             $this->trigger(self::EVENT_AFTER_SAVE_PLUGIN_SETTINGS, new PluginEvent([
-                'plugin' => $plugin
+                'plugin' => $plugin,
             ]));
         }
 
-        return (bool)$affectedRows;
+        return true;
     }
 
     /**
@@ -625,7 +759,6 @@ class Plugins extends Component
      */
     public function hasPluginVersionNumberChanged(PluginInterface $plugin): bool
     {
-        /** @var Plugin $plugin */
         $this->loadPlugins();
 
         if (($info = $this->getStoredPluginInfo($plugin->id)) === null) {
@@ -640,10 +773,10 @@ class Plugins extends Component
      *
      * @param PluginInterface $plugin The plugin
      * @return bool Whether the plugin’s local schema version is greater than the record we have in the database
+     * @todo rename to isPluginUpdatePending() in v4
      */
     public function doesPluginRequireDatabaseUpdate(PluginInterface $plugin): bool
     {
-        /** @var Plugin $plugin */
         $this->loadPlugins();
 
         if (($info = $this->getStoredPluginInfo($plugin->id)) === null) {
@@ -662,14 +795,7 @@ class Plugins extends Component
     public function isPluginInstalled(string $handle): bool
     {
         $this->loadPlugins();
-
-        if (isset($this->_enabledPluginInfo[$handle])) {
-            return true;
-        }
-
-        return $this->_createPluginQuery()
-            ->where(['handle' => $handle])
-            ->exists();
+        return isset($this->_storedPluginInfo[$handle]);
     }
 
     /**
@@ -681,7 +807,7 @@ class Plugins extends Component
     public function isPluginEnabled(string $handle): bool
     {
         $this->loadPlugins();
-        return isset($this->_enabledPluginInfo[$handle]);
+        return $this->_storedPluginInfo[$handle]['enabled'] ?? false;
     }
 
     /**
@@ -704,23 +830,45 @@ class Plugins extends Component
     public function getStoredPluginInfo(string $handle)
     {
         $this->loadPlugins();
+        return $this->_storedPluginInfo[$handle] ?? null;
+    }
 
-        if (isset($this->_enabledPluginInfo[$handle])) {
-            return $this->_enabledPluginInfo[$handle];
+    /**
+     * Updates a plugin’s stored version & schema version to match what’s Composer-installed.
+     *
+     * @param PluginInterface $plugin
+     * @return void
+     * @throws InvalidPluginException if there’s no record of the plugin in the database
+     * @since 3.7.13
+     */
+    public function updatePluginVersionInfo(PluginInterface $plugin): void
+    {
+        $success = (bool)Db::update(Table::PLUGINS, [
+            'version' => $plugin->getVersion(),
+            'schemaVersion' => $plugin->schemaVersion,
+        ], [
+            'handle' => $plugin->id,
+        ]);
+
+        if (!$success) {
+            throw new InvalidPluginException($plugin->id);
         }
 
-        $row = $this->_createPluginQuery()
-            ->where(['handle' => $handle])
-            ->one();
-
-        if (!$row) {
-            return null;
+        // Update our cache of the versions
+        $this->loadPlugins();
+        if (isset($this->_storedPluginInfo[$plugin->id])) {
+            $this->_storedPluginInfo[$plugin->id]['version'] = $plugin->getVersion();
+            $this->_storedPluginInfo[$plugin->id]['schemaVersion'] = $plugin->schemaVersion;
         }
 
-        $row['settings'] = Json::decode($row['settings']);
-        $row['installDate'] = DateTimeHelper::toDateTime($row['installDate']);
+        // Only update the schema version if it's changed from what's in the file,
+        // so we don't accidentally overwrite other pending changes
+        $projectConfig = Craft::$app->getProjectConfig();
+        $key = self::CONFIG_PLUGINS_KEY . ".$plugin->id.schemaVersion";
 
-        return $row;
+        if ($projectConfig->get($key, true) !== $plugin->schemaVersion) {
+            Craft::$app->getProjectConfig()->set($key, $plugin->schemaVersion, "Update plugin schema version for “{$plugin->handle}”");
+        }
     }
 
     /**
@@ -741,11 +889,11 @@ class Plugins extends Component
      * Creates and returns a new plugin instance based on its handle.
      *
      * @param string $handle The plugin’s handle
-     * @param array|null $row The plugin’s row in the plugins table, if any
-     * @return PluginInterface
+     * @param array|null $info The plugin’s stored info, if any
+     * @return PluginInterface|null
      * @throws InvalidPluginException if $handle is invalid
      */
-    public function createPlugin(string $handle, array $row = null)
+    public function createPlugin(string $handle, array $info = null): ?PluginInterface
     {
         if (!isset($this->_composerPluginInfo[$handle])) {
             throw new InvalidPluginException($handle);
@@ -762,6 +910,7 @@ class Plugins extends Component
             unset($config['aliases']);
         }
 
+        /** @var string|PluginInterface $class */
         $class = $config['class'];
 
         // Make sure the class exists and it implements PluginInterface
@@ -770,27 +919,34 @@ class Plugins extends Component
         }
 
         // Is it installed?
-        if ($row !== null) {
+        if ($info !== null) {
             $config['isInstalled'] = true;
 
+            // Set the edition
+            $config['edition'] = $info['edition'] ?? 'standard';
+            $editions = $class::editions();
+            if (!in_array($config['edition'], $editions, true)) {
+                $config['edition'] = reset($editions);
+            }
+
             $settings = array_merge(
-                $row['settings'] ?? [],
+                $info['settings'] ?? [],
                 Craft::$app->getConfig()->getConfigFromFile($handle)
             );
 
             if ($settings !== []) {
                 $config['settings'] = $settings;
             }
+
+            // Merge in the custom config, if there is one
+            if (isset($this->pluginConfigs[$handle])) {
+                $config = ArrayHelper::merge($config, $this->pluginConfigs[$handle]);
+            }
         }
 
         // Create the plugin
-        /** @var Plugin $plugin */
         $plugin = Craft::createObject($config, [$handle, Craft::$app]);
-
-        if ($row !== null) {
-            $this->_setPluginMigrator($plugin, $row['id']);
-        }
-
+        $this->_setPluginMigrator($plugin);
         return $plugin;
     }
 
@@ -805,15 +961,13 @@ class Plugins extends Component
 
         // Get the info arrays
         $info = [];
-        $names = [];
 
         foreach (array_keys($this->_composerPluginInfo) as $handle) {
             $info[$handle] = $this->getPluginInfo($handle);
-            $names[] = $info[$handle]['name'];
         }
 
         // Sort plugins by their names
-        array_multisort($names, SORT_NATURAL | SORT_FLAG_CASE, $info);
+        ArrayHelper::multisort($info, 'name', SORT_ASC, SORT_NATURAL | SORT_FLAG_CASE);
 
         return $info;
     }
@@ -831,12 +985,9 @@ class Plugins extends Component
             throw new InvalidPluginException($handle);
         }
 
-        // Get the info in the DB, if it's installed
-        $this->_loadDisabledPluginInfo();
-        $pluginInfo = $this->_enabledPluginInfo[$handle] ?? $this->_disabledPluginInfo[$handle] ?? null;
+        $pluginInfo = $this->getStoredPluginInfo($handle);
 
         // Get the plugin if it's enabled
-        /** @var Plugin|null $plugin */
         $plugin = $this->getPlugin($handle);
 
         $info = array_merge([
@@ -846,33 +997,50 @@ class Plugins extends Component
             'documentationUrl' => null,
         ], $this->_composerPluginInfo[$handle]);
 
+        $edition = $pluginInfo['edition'] ?? 'standard';
+        if ($plugin) {
+            $editions = $plugin::editions();
+            if (!in_array($edition, $editions, true)) {
+                $edition = reset($editions);
+            }
+        } else {
+            $editions = ['standard'];
+        }
+
         $info['isInstalled'] = $installed = $pluginInfo !== null;
         $info['isEnabled'] = $plugin !== null;
         $info['moduleId'] = $handle;
+        $info['edition'] = $edition;
+        $info['hasMultipleEditions'] = count($editions) > 1;
         $info['hasCpSettings'] = ($plugin !== null && $plugin->hasCpSettings);
-        $info['licenseKey'] = $key = $pluginInfo['licenseKey'] ?? null;
-        $info['licenseKeyStatus'] = $status = $pluginInfo['licenseKeyStatus'] ?? LicenseKeyStatus::Unknown;
-        $info['hasIssues'] = $hasIssues = $installed ? $this->hasIssues($handle) : false;
+        $info['licenseKey'] = $pluginInfo['licenseKey'] ?? null;
+        $info['licenseKeyStatus'] = $pluginInfo['licenseKeyStatus'] ?? LicenseKeyStatus::Unknown;
+        $info['licensedEdition'] = $pluginInfo['licensedEdition'] ?? null;
+        $info['licenseIssues'] = $installed ? $this->getLicenseIssues($handle) : [];
 
-        if ($hasIssues) {
-            switch ($status) {
-                case LicenseKeyStatus::Mismatched:
-                    $info['licenseStatusMessage'] = Craft::t('app', 'This license is tied to another Craft install. Visit {url} to resolve.', [
-                        'url' => '<a href="https://id.craftcms.com" rel="noopener" target="_blank">id.craftcms.com</a>',
-                    ]);
-                    break;
-                case LicenseKeyStatus::Astray:
-                    $info['licenseStatusMessage'] = Craft::t('app', 'This license isn’t allowed to run version {version}.', [
-                        'version' => $this->_composerPluginInfo[$handle]['version'],
-                    ]);
-                    break;
-                default:
-                    $info['licenseStatusMessage'] = $key ? Craft::t('app', 'Your license key is invalid.') : Craft::t('app', 'A license key is required.');
-                    break;
-            }
-        } else {
-            $info['licenseStatusMessage'] = null;
-        }
+        $info['isTrial'] = (
+            $installed &&
+            (
+                $info['licenseKeyStatus'] === LicenseKeyStatus::Trial ||
+                (
+                    $info['licenseKeyStatus'] === LicenseKeyStatus::Valid &&
+                    !empty($pluginInfo['licensedEdition'])
+                    && $pluginInfo['licensedEdition'] !== $edition
+                )
+            )
+        );
+
+        // An upgrade is available if the plugin is in trial or licensed to less than the best edition
+        $info['upgradeAvailable'] = (
+            $info['isTrial'] ||
+            (
+                $info['hasMultipleEditions'] &&
+                (
+                    (!empty($pluginInfo['licensedEdition']) && $pluginInfo['licensedEdition'] !== end($editions)) ||
+                    ($pluginInfo['edition'] ?? 'standard') !== end($editions)
+                )
+            )
+        );
 
         return $info;
     }
@@ -882,31 +1050,70 @@ class Plugins extends Component
      *
      * @param string $handle
      * @return bool
-     * @throws InvalidPluginException if the plugin isn't installed
      */
     public function hasIssues(string $handle): bool
     {
-        if (isset($this->_enabledPluginInfo[$handle])) {
-            $pluginInfo = $this->_enabledPluginInfo[$handle];
-        } else {
-            $this->_loadDisabledPluginInfo();
-            if (!isset($this->_disabledPluginInfo[$handle])) {
-                return false;
-            }
-            $pluginInfo = $this->_disabledPluginInfo[$handle];
+        return !empty($this->getLicenseIssues($handle));
+    }
+
+    /**
+     * Returns any issues with a plugin license.
+     *
+     * The response will be an array containing a combination of these strings:
+     *
+     * - `wrong_edition` – if the current edition isn't the licensed one, and
+     *   testing editions isn't allowed
+     * - `mismatched` – if the license key is tied to a different Craft license
+     * - `astray` – if the installed version is greater than the highest version
+     *   the license is allowed to run
+     * - `required` – if no license key is present but one is required
+     * - `invalid` – if a license key is present but it’s invalid
+     *
+     * @param string $handle
+     * @return string[]
+     */
+    public function getLicenseIssues(string $handle): array
+    {
+        $pluginInfo = $this->getStoredPluginInfo($handle);
+
+        if ($pluginInfo === null) {
+            return [];
         }
 
         $status = $pluginInfo['licenseKeyStatus'] ?? LicenseKeyStatus::Unknown;
 
-        return (
-            $status !== LicenseKeyStatus::Valid &&
-            $status !== LicenseKeyStatus::Unknown &&
-            (
-                $status !== LicenseKeyStatus::Invalid ||
-                !empty($pluginInfo['licenseKey']) ||
-                !Craft::$app->getCanTestEditions()
-            )
-        );
+        if ($status === LicenseKeyStatus::Unknown) {
+            // Either we don't know yet, or the plugin is free
+            return [];
+        }
+
+        $issues = [];
+
+        // Make sure they're allowed to run the current edition
+        $canTestEditions = Craft::$app->getCanTestEditions();
+        if (
+            !$canTestEditions &&
+            isset($pluginInfo['edition'], $pluginInfo['licensedEdition']) &&
+            $pluginInfo['edition'] !== $pluginInfo['licensedEdition']
+        ) {
+            $issues[] = 'wrong_edition';
+        }
+
+        // General license issues
+        switch ($pluginInfo['licenseKeyStatus']) {
+            case LicenseKeyStatus::Trial:
+                if (!$canTestEditions) {
+                    $issues[] = empty($pluginInfo['licenseKey']) ? 'required' : 'no_trials';
+                }
+                break;
+            case LicenseKeyStatus::Invalid:
+            case LicenseKeyStatus::Mismatched:
+            case LicenseKeyStatus::Astray:
+                $issues[] = $pluginInfo['licenseKeyStatus'];
+                break;
+        }
+
+        return $issues;
     }
 
     /**
@@ -919,7 +1126,6 @@ class Plugins extends Component
     {
         // If it's installed, let the plugin say where it lives
         if (($plugin = $this->getPlugin($handle)) !== null) {
-            /** @var Plugin $plugin */
             $basePath = $plugin->getBasePath();
         } else {
             if (($basePath = $this->_composerPluginInfo[$handle]['basePath'] ?? false) !== false) {
@@ -930,7 +1136,7 @@ class Plugins extends Component
         $iconPath = ($basePath !== false) ? $basePath . DIRECTORY_SEPARATOR . 'icon.svg' : false;
 
         if ($iconPath === false || !is_file($iconPath) || !FileHelper::isSvg($iconPath)) {
-            $iconPath = Craft::getAlias('@app/icons/default-plugin.svg');
+            $iconPath = Craft::getAlias('@appicons/default-plugin.svg');
         }
 
         return file_get_contents($iconPath);
@@ -941,10 +1147,12 @@ class Plugins extends Component
      *
      * @param string $handle The plugin’s handle
      * @return string|null The plugin’s license key, or null if it isn’t known
+     * @throws InvalidLicenseKeyException
      */
     public function getPluginLicenseKey(string $handle)
     {
-        return $this->getStoredPluginInfo($handle)['licenseKey'] ?? null;
+        $licenseKey = $this->getStoredPluginInfo($handle)['licenseKey'] ?? null;
+        return $this->normalizePluginLicenseKey(App::parseEnv($licenseKey));
     }
 
     /**
@@ -960,35 +1168,22 @@ class Plugins extends Component
      */
     public function setPluginLicenseKey(string $handle, string $licenseKey = null): bool
     {
-        if (($plugin = $this->getPlugin($handle)) === null) {
-            throw new InvalidPluginException($handle);
-        }
-
-        /** @var Plugin $plugin */
         // Validate the license key
-        if ($licenseKey !== null) {
-            // Normalize to just uppercase numbers/letters
-            $normalizedLicenseKey = mb_strtoupper($licenseKey);
-            $normalizedLicenseKey = preg_replace('/[^A-Z0-9]/', '', $normalizedLicenseKey);
+        $normalizedLicenseKey = $this->normalizePluginLicenseKey($licenseKey);
 
-            if (strlen($normalizedLicenseKey) != 24) {
-                // Invalid key
-                throw new InvalidLicenseKeyException($licenseKey);
-            }
+        // If the license key is set to an empty environment variable, set the environment variable's value
+        $oldLicenseKey = $this->getStoredPluginInfo($handle)['licenseKey'] ?? null;
+        if (preg_match('/^\$(\w+)$/', $oldLicenseKey, $matches) && App::env($matches[1]) === '') {
+            Craft::$app->getConfig()->setDotEnvVar($matches[1], $normalizedLicenseKey);
         } else {
-            $normalizedLicenseKey = null;
-        }
+            // Set the plugin's license key in the project config
+            Craft::$app->getProjectConfig()->set(sprintf('%s.%s.licenseKey', self::CONFIG_PLUGINS_KEY, $handle), $normalizedLicenseKey, "Set license key for plugin “{$handle}”");
 
-        Craft::$app->getDb()->createCommand()
-            ->update(
-                '{{%plugins}}',
-                ['licenseKey' => $normalizedLicenseKey],
-                ['handle' => $handle])
-            ->execute();
-
-        // Update our cache of it
-        if (isset($this->_enabledPluginInfo[$handle])) {
-            $this->_enabledPluginInfo[$handle]['licenseKey'] = $normalizedLicenseKey;
+            // Update our cache of it
+            $this->loadPlugins();
+            if (isset($this->_storedPluginInfo[$handle])) {
+                $this->_storedPluginInfo[$handle]['licenseKey'] = $normalizedLicenseKey;
+            }
         }
 
         // If we've cached the plugin's license key status, update the cache
@@ -997,6 +1192,35 @@ class Plugins extends Component
         }
 
         return true;
+    }
+
+    /**
+     * Normalizes a plugin license key.
+     *
+     * @param string|null $licenseKey
+     * @return string|null
+     * @throws InvalidLicenseKeyException
+     */
+    public function normalizePluginLicenseKey(string $licenseKey = null)
+    {
+        if (empty($licenseKey)) {
+            return null;
+        }
+
+        if (strpos($licenseKey, '$') === 0) {
+            return $licenseKey;
+        }
+
+        // Normalize to just uppercase numbers/letters
+        $licenseKey = mb_strtoupper($licenseKey);
+        $licenseKey = preg_replace('/[^A-Z0-9]/', '', $licenseKey);
+
+        if (strlen($licenseKey) != 24) {
+            // Invalid key
+            throw new InvalidLicenseKeyException($licenseKey);
+        }
+
+        return $licenseKey;
     }
 
     /**
@@ -1015,30 +1239,30 @@ class Plugins extends Component
      *
      * @param string $handle The plugin’s handle
      * @param string|null $licenseKeyStatus The plugin’s license key status
+     * @param string|null $licensedEdition The plugin's licensed edition, if the key is valid
      * @throws InvalidPluginException if the plugin isn't installed
      */
-    public function setPluginLicenseKeyStatus(string $handle, string $licenseKeyStatus = null)
+    public function setPluginLicenseKeyStatus(string $handle, string $licenseKeyStatus = null, string $licensedEdition = null)
     {
-        if (($plugin = $this->getPlugin($handle)) === null) {
+        $pluginInfo = $this->getPluginInfo($handle);
+
+        if (!$pluginInfo['isInstalled']) {
             throw new InvalidPluginException($handle);
         }
 
-        /** @var Plugin $plugin */
-        Craft::$app->getDb()->createCommand()
-            ->update(
-                '{{%plugins}}',
-                ['licenseKeyStatus' => $licenseKeyStatus],
-                ['handle' => $handle])
-            ->execute();
+        Db::update(Table::PLUGINS, [
+            'licenseKeyStatus' => $licenseKeyStatus,
+            'licensedEdition' => $licensedEdition,
+        ], [
+            'handle' => $handle,
+        ]);
 
         // Update our cache of it
-        if (isset($this->_enabledPluginInfo[$handle])) {
-            $this->_enabledPluginInfo[$handle]['licenseKeyStatus'] = $licenseKeyStatus;
+        if (isset($this->_storedPluginInfo[$handle])) {
+            $this->_storedPluginInfo[$handle]['licenseKeyStatus'] = $licenseKeyStatus;
+            $this->_storedPluginInfo[$handle]['licensedEdition'] = $licensedEdition;
         }
     }
-
-    // Private Methods
-    // =========================================================================
 
     /**
      * Returns a Query object prepped for retrieving sections.
@@ -1047,18 +1271,24 @@ class Plugins extends Component
      */
     private function _createPluginQuery(): Query
     {
-        return (new Query())
+        $query = (new Query())
             ->select([
                 'id',
                 'handle',
                 'version',
                 'schemaVersion',
-                'licenseKey',
                 'licenseKeyStatus',
-                'settings',
-                'installDate'
+                'installDate',
             ])
-            ->from(['{{%plugins}}']);
+            ->from([Table::PLUGINS]);
+
+        // todo: remove schema version condition after next beakpoint
+        $schemaVersion = Craft::$app->getInstalledSchemaVersion();
+        if (version_compare($schemaVersion, '3.1.19', '>=')) {
+            $query->addSelect(['licensedEdition']);
+        }
+
+        return $query;
     }
 
     /**
@@ -1085,7 +1315,6 @@ class Plugins extends Component
      */
     private function _registerPlugin(PluginInterface $plugin)
     {
-        /** @var Plugin $plugin */
         $this->_plugins[$plugin->id] = $plugin;
         Craft::$app->setModule($plugin->id, $plugin);
     }
@@ -1097,7 +1326,6 @@ class Plugins extends Component
      */
     private function _unregisterPlugin(PluginInterface $plugin)
     {
-        /** @var Plugin $plugin */
         unset($this->_plugins[$plugin->id]);
         Craft::$app->setModule($plugin->id, null);
     }
@@ -1106,32 +1334,59 @@ class Plugins extends Component
      * Sets the 'migrator' component on a plugin.
      *
      * @param PluginInterface $plugin The plugin
-     * @param int $id The plugin’s ID
      */
-    private function _setPluginMigrator(PluginInterface $plugin, int $id)
+    private function _setPluginMigrator(PluginInterface $plugin)
     {
         $ref = new \ReflectionClass($plugin);
         $ns = $ref->getNamespaceName();
-        /** @var Plugin $plugin */
         $plugin->set('migrator', [
             'class' => MigrationManager::class,
-            'type' => MigrationManager::TYPE_PLUGIN,
-            'pluginId' => $id,
+            'track' => "plugin:$plugin->id",
             'migrationNamespace' => ($ns ? $ns . '\\' : '') . 'migrations',
             'migrationPath' => $plugin->getBasePath() . DIRECTORY_SEPARATOR . 'migrations',
         ]);
     }
 
     /**
-     * Load
+     * Load config data for plugin by its handle.
+     *
+     * @param string $handle
+     * @return array
+     *
+     * @throws InvalidPluginException if plugin not found
      */
-    private function _loadDisabledPluginInfo()
+    private function _getPluginConfigData(string $handle): array
     {
-        if ($this->_disabledPluginInfo === null) {
-            $this->_disabledPluginInfo = $this->_createPluginQuery()
-                ->where(['enabled' => false])
-                ->indexBy('handle')
-                ->all();
+        // todo: remove this after the next breakpoint
+        if (version_compare(Craft::$app->getInfo()->version, '3.1', '<')) {
+            $row = (new Query())->from([Table::PLUGINS])->where(['handle' => $handle])->one();
+            if (!$row) {
+                throw new InvalidPluginException($handle);
+            }
+            $row['settings'] = Json::decodeIfJson((string)($row['settings'] ?? '[]'));
+            return $row;
         }
+
+        $projectConfig = Craft::$app->getProjectConfig();
+        $configKey = self::CONFIG_PLUGINS_KEY . '.' . $handle;
+        $data = $projectConfig->get($configKey) ?? $projectConfig->get($configKey, true);
+
+        if (!empty($data['settings'])) {
+            $data['settings'] = ProjectConfigHelper::unpackAssociativeArrays($data['settings']);
+        }
+
+        if (!$data) {
+            throw new InvalidPluginException($handle);
+        }
+
+        // Force disable it?
+        if (
+            $this->_forceDisabledPlugins === '*' ||
+            (is_array($this->_forceDisabledPlugins) && isset($this->_forceDisabledPlugins[$handle]))
+        ) {
+            $data['enabled'] = false;
+        }
+
+        return $data;
     }
 }

@@ -14,6 +14,7 @@ namespace Composer\IO;
 
 use Composer\Question\StrictConfirmationQuestion;
 use Symfony\Component\Console\Helper\HelperSet;
+use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -35,9 +36,9 @@ class ConsoleIO extends BaseIO
     /** @var HelperSet */
     protected $helperSet;
     /** @var string */
-    protected $lastMessage;
+    protected $lastMessage = '';
     /** @var string */
-    protected $lastMessageErr;
+    protected $lastMessageErr = '';
 
     /** @var float */
     private $startTime;
@@ -67,6 +68,8 @@ class ConsoleIO extends BaseIO
 
     /**
      * @param float $startTime
+     *
+     * @return void
      */
     public function enableDebugging($startTime)
     {
@@ -74,7 +77,7 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function isInteractive()
     {
@@ -82,7 +85,7 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function isDecorated()
     {
@@ -90,7 +93,7 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function isVerbose()
     {
@@ -98,7 +101,7 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function isVeryVerbose()
     {
@@ -106,7 +109,7 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function isDebug()
     {
@@ -114,7 +117,7 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function write($messages, $newline = true, $verbosity = self::NORMAL)
     {
@@ -122,7 +125,7 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function writeError($messages, $newline = true, $verbosity = self::NORMAL)
     {
@@ -130,30 +133,50 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * @param array|string $messages
-     * @param bool         $newline
-     * @param bool         $stderr
-     * @param int          $verbosity
+     * @inheritDoc
      */
-    private function doWrite($messages, $newline, $stderr, $verbosity)
+    public function writeRaw($messages, $newline = true, $verbosity = self::NORMAL)
+    {
+        $this->doWrite($messages, $newline, false, $verbosity, true);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function writeErrorRaw($messages, $newline = true, $verbosity = self::NORMAL)
+    {
+        $this->doWrite($messages, $newline, true, $verbosity, true);
+    }
+
+    /**
+     * @param string[]|string $messages
+     * @param bool                 $newline
+     * @param bool                 $stderr
+     * @param int                  $verbosity
+     * @param bool                 $raw
+     *
+     * @return void
+     */
+    private function doWrite($messages, $newline, $stderr, $verbosity, $raw = false)
     {
         $sfVerbosity = $this->verbosityMap[$verbosity];
         if ($sfVerbosity > $this->output->getVerbosity()) {
             return;
         }
 
-        // hack to keep our usage BC with symfony<2.8 versions
-        // this removes the quiet output but there is no way around it
-        // see https://github.com/composer/composer/pull/4913
-        if (OutputInterface::VERBOSITY_QUIET === 0) {
-            $sfVerbosity = OutputInterface::OUTPUT_NORMAL;
+        if ($raw) {
+            if ($sfVerbosity === OutputInterface::OUTPUT_NORMAL) {
+                $sfVerbosity = OutputInterface::OUTPUT_RAW;
+            } else {
+                $sfVerbosity |= OutputInterface::OUTPUT_RAW;
+            }
         }
 
         if (null !== $this->startTime) {
             $memoryUsage = memory_get_usage() / 1024 / 1024;
             $timeSpent = microtime(true) - $this->startTime;
             $messages = array_map(function ($message) use ($memoryUsage, $timeSpent) {
-                return sprintf('[%.1fMB/%.2fs] %s', $memoryUsage, $timeSpent, $message);
+                return sprintf('[%.1fMiB/%.2fs] %s', $memoryUsage, $timeSpent, $message);
             }, (array) $messages);
         }
 
@@ -169,7 +192,7 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function overwrite($messages, $newline = true, $size = null, $verbosity = self::NORMAL)
     {
@@ -177,7 +200,7 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function overwriteError($messages, $newline = true, $size = null, $verbosity = self::NORMAL)
     {
@@ -185,11 +208,13 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * @param array|string $messages
+     * @param string[]|string $messages
      * @param bool         $newline
      * @param int|null     $size
      * @param bool         $stderr
      * @param int          $verbosity
+     *
+     * @return void
      */
     private function doOverwrite($messages, $newline, $size, $stderr, $verbosity)
     {
@@ -230,7 +255,16 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @param  int         $max
+     * @return ProgressBar
+     */
+    public function getProgressBar($max = 0)
+    {
+        return new ProgressBar($this->getErrorOutput(), $max);
+    }
+
+    /**
+     * @inheritDoc
      */
     public function ask($question, $default = null)
     {
@@ -242,7 +276,7 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function askConfirmation($question, $default = true)
     {
@@ -254,7 +288,7 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function askAndValidate($question, $validator, $attempts = null, $default = null)
     {
@@ -268,17 +302,20 @@ class ConsoleIO extends BaseIO
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function askAndHideAnswer($question)
     {
-        $this->writeError($question, false);
+        /** @var \Symfony\Component\Console\Helper\QuestionHelper $helper */
+        $helper = $this->helperSet->get('question');
+        $question = new Question($question);
+        $question->setHidden(true);
 
-        return \Seld\CliPrompt\CliPrompt::hiddenPrompt(true);
+        return $helper->ask($this->input, $this->getErrorOutput(), $question);
     }
 
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function select($question, $choices, $default, $attempts = false, $errorMessage = 'Value "%s" is invalid', $multiselect = false)
     {
@@ -290,6 +327,10 @@ class ConsoleIO extends BaseIO
         $question->setMultiselect($multiselect);
 
         $result = $helper->ask($this->input, $this->getErrorOutput(), $question);
+
+        if (!is_array($result)) {
+            return (string) array_search($result, $choices, true);
+        }
 
         $results = array();
         foreach ($choices as $index => $choice) {

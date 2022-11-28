@@ -1,8 +1,8 @@
 <?php
 /**
- * @link http://www.yiiframework.com/
+ * @link https://www.yiiframework.com/
  * @copyright Copyright (c) 2008 Yii Software LLC
- * @license http://www.yiiframework.com/license/
+ * @license https://www.yiiframework.com/license/
  */
 
 namespace yii\queue\cli;
@@ -10,7 +10,7 @@ namespace yii\queue\cli;
 /**
  * Process Signal Helper.
  *
- * @deprecated since 2.0.2 and will be removed in 2.1. Use SignalLoop instead.
+ * @deprecated since 2.0.2 and will be removed in 3.0. Use SignalLoop instead.
  *
  * @author Roman Zhuravlev <zhuravljov@gmail.com>
  */

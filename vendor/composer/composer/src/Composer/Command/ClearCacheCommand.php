@@ -22,20 +22,29 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class ClearCacheCommand extends BaseCommand
 {
+    /**
+     * @return void
+     */
     protected function configure()
     {
         $this
             ->setName('clear-cache')
-            ->setAliases(array('clearcache'))
+            ->setAliases(array('clearcache', 'cc'))
             ->setDescription('Clears composer\'s internal package cache.')
-            ->setHelp(<<<EOT
+            ->setHelp(
+                <<<EOT
 The <info>clear-cache</info> deletes all cached packages from composer's
 cache directory.
+
+Read more at https://getcomposer.org/doc/03-cli.md#clear-cache-clearcache-cc
 EOT
             )
         ;
     }
 
+    /**
+     * @return int
+     */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $config = Factory::createConfig();
@@ -56,6 +65,7 @@ EOT
                 continue;
             }
             $cache = new Cache($io, $cachePath);
+            $cache->setReadOnly($config->get('cache-read-only'));
             if (!$cache->isEnabled()) {
                 $io->writeError("<info>Cache is not enabled ($key): $cachePath</info>");
 
@@ -67,5 +77,7 @@ EOT
         }
 
         $io->writeError('<info>All caches cleared.</info>');
+
+        return 0;
     }
 }

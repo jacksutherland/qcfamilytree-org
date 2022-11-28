@@ -9,12 +9,15 @@ namespace craft\console;
 
 use Craft;
 use craft\base\ApplicationTrait;
+use craft\console\controllers\HelpController;
+use craft\db\Query;
+use craft\db\Table;
 use craft\errors\MissingComponentException;
+use craft\helpers\Console;
 use craft\queue\QueueLogBehavior;
 use yii\base\Component;
 use yii\base\InvalidConfigException;
 use yii\console\controllers\CacheController;
-use yii\console\controllers\HelpController;
 use yii\console\controllers\MigrateController;
 use yii\console\Response;
 
@@ -25,33 +28,14 @@ use yii\console\Response;
  *
  * @property Request $request The request component
  * @property User $user The user component
- * @method Request getRequest()      Returns the request component.
- * @method Response getResponse()     Returns the response component.
+ * @method Request getRequest() Returns the request component.
+ * @method Response getResponse() Returns the response component.
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Application extends \yii\console\Application
 {
-    // Traits
-    // =========================================================================
-
     use ApplicationTrait;
-
-    // Public Methods
-    // =========================================================================
-
-    /**
-     * Constructor.
-     *
-     * @param array $config name-value pairs that will be used to initialize the object properties.
-     * Note that the configuration must contain both [[id]] and [[basePath]].
-     * @throws InvalidConfigException if either [[id]] or [[basePath]] configuration is missing.
-     */
-    public function __construct($config = [])
-    {
-        Craft::$app = $this;
-        parent::__construct($config);
-    }
 
     /**
      * Initializes the console app by creating the command runner.
@@ -80,6 +64,34 @@ class Application extends \yii\console\Application
     /**
      * @inheritdoc
      */
+    public function runAction($route, $params = [])
+    {
+        if (!$this->getIsInstalled()) {
+            [$firstSeg] = explode('/', $route, 2);
+            if ($route !== 'install/plugin' && !in_array($firstSeg, ['install', 'setup'], true)) {
+                // Is the connection valid at least?
+                if (!$this->getIsDbConnectionValid()) {
+                    Console::outputWarning('Craft can’t connect to the database. Check your connection settings.');
+                } else {
+                    $infoTable = $this->getDb()->getSchema()->getRawTableName(Table::INFO);
+                    // Figure out the exception that is getting thrown
+                    $e = null;
+                    try {
+                        (new Query())->from([Table::INFO])->where(['id' => 1])->one();
+                    } catch (\Throwable $e) {
+                        $e = $e->getPrevious() ?? $e;
+                    }
+                    Console::outputWarning("Craft can’t fetch the `$infoTable` table row." . ($e ? PHP_EOL . 'Exception: ' . $e->getMessage() : ''), false);
+                }
+            }
+        }
+
+        return parent::runAction($route, $params);
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function setTimeZone($value)
     {
         parent::setTimeZone($value);
@@ -93,6 +105,17 @@ class Application extends \yii\console\Application
                 parent::setTimeZone('UTC');
             }
         }
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function handleRequest($request)
+    {
+        // Disable read/write splitting for all console requests
+        $this->getDb()->enableReplicas = false;
+
+        return parent::handleRequest($request);
     }
 
     /**

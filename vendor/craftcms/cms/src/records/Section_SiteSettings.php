@@ -8,6 +8,7 @@
 namespace craft\records;
 
 use craft\db\ActiveRecord;
+use craft\db\Table;
 use yii\db\ActiveQueryInterface;
 
 /**
@@ -23,20 +24,17 @@ use yii\db\ActiveQueryInterface;
  * @property Section $section Section
  * @property Site $site Site
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class Section_SiteSettings extends ActiveRecord
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      * @return string
      */
     public static function tableName(): string
     {
-        return '{{%sections_sites}}';
+        return Table::SECTIONS_SITES;
     }
 
     /**

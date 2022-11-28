@@ -14,6 +14,8 @@ namespace Composer;
 
 use Composer\Package\RootPackageInterface;
 use Composer\Package\Locker;
+use Composer\Pcre\Preg;
+use Composer\Util\Loop;
 use Composer\Repository\RepositoryManager;
 use Composer\Installer\InstallationManager;
 use Composer\Plugin\PluginManager;
@@ -29,19 +31,75 @@ use Composer\Package\Archiver\ArchiveManager;
  */
 class Composer
 {
-    const VERSION = '1.6.3';
+    /*
+     * Examples of the following constants in the various configurations they can be in
+     *
+     * releases (phar):
+     * const VERSION = '1.8.2';
+     * const BRANCH_ALIAS_VERSION = '';
+     * const RELEASE_DATE = '2019-01-29 15:00:53';
+     * const SOURCE_VERSION = '';
+     *
+     * snapshot builds (phar):
+     * const VERSION = 'd3873a05650e168251067d9648845c220c50e2d7';
+     * const BRANCH_ALIAS_VERSION = '1.9-dev';
+     * const RELEASE_DATE = '2019-02-20 07:43:56';
+     * const SOURCE_VERSION = '';
+     *
+     * source (git clone):
+     * const VERSION = '@package_version@';
+     * const BRANCH_ALIAS_VERSION = '@package_branch_alias_version@';
+     * const RELEASE_DATE = '@release_date@';
+     * const SOURCE_VERSION = '1.8-dev+source';
+     */
+    const VERSION = '2.2.15';
     const BRANCH_ALIAS_VERSION = '';
-    const RELEASE_DATE = '2018-01-31 16:28:17';
+    const RELEASE_DATE = '2022-07-01 12:01:26';
+    const SOURCE_VERSION = '';
 
     /**
-     * @var Package\RootPackageInterface
+     * Version number of the internal composer-runtime-api package
+     *
+     * This is used to version features available to projects at runtime
+     * like the platform-check file, the Composer\InstalledVersions class
+     * and possibly others in the future.
+     *
+     * @var string
+     */
+    const RUNTIME_API_VERSION = '2.2.2';
+
+    /**
+     * @return string
+     */
+    public static function getVersion()
+    {
+        // no replacement done, this must be a source checkout
+        if (self::VERSION === '@package_version'.'@') {
+            return self::SOURCE_VERSION;
+        }
+
+        // we have a branch alias and version is a commit id, this must be a snapshot build
+        if (self::BRANCH_ALIAS_VERSION !== '' && Preg::isMatch('{^[a-f0-9]{40}$}', self::VERSION)) {
+            return self::BRANCH_ALIAS_VERSION.'+'.self::VERSION;
+        }
+
+        return self::VERSION;
+    }
+
+    /**
+     * @var RootPackageInterface
      */
     private $package;
 
     /**
-     * @var Locker
+     * @var ?Locker
      */
-    private $locker;
+    private $locker = null;
+
+    /**
+     * @var Loop
+     */
+    private $loop;
 
     /**
      * @var Repository\RepositoryManager
@@ -84,7 +142,6 @@ class Composer
     private $archiveManager;
 
     /**
-     * @param  Package\RootPackageInterface $package
      * @return void
      */
     public function setPackage(RootPackageInterface $package)
@@ -93,7 +150,7 @@ class Composer
     }
 
     /**
-     * @return Package\RootPackageInterface
+     * @return RootPackageInterface
      */
     public function getPackage()
     {
@@ -101,7 +158,7 @@ class Composer
     }
 
     /**
-     * @param Config $config
+     * @return void
      */
     public function setConfig(Config $config)
     {
@@ -117,7 +174,7 @@ class Composer
     }
 
     /**
-     * @param Package\Locker $locker
+     * @return void
      */
     public function setLocker(Locker $locker)
     {
@@ -125,7 +182,7 @@ class Composer
     }
 
     /**
-     * @return Package\Locker
+     * @return ?Locker
      */
     public function getLocker()
     {
@@ -133,7 +190,23 @@ class Composer
     }
 
     /**
-     * @param Repository\RepositoryManager $manager
+     * @return void
+     */
+    public function setLoop(Loop $loop)
+    {
+        $this->loop = $loop;
+    }
+
+    /**
+     * @return Loop
+     */
+    public function getLoop()
+    {
+        return $this->loop;
+    }
+
+    /**
+     * @return void
      */
     public function setRepositoryManager(RepositoryManager $manager)
     {
@@ -141,7 +214,7 @@ class Composer
     }
 
     /**
-     * @return Repository\RepositoryManager
+     * @return RepositoryManager
      */
     public function getRepositoryManager()
     {
@@ -149,7 +222,7 @@ class Composer
     }
 
     /**
-     * @param Downloader\DownloadManager $manager
+     * @return void
      */
     public function setDownloadManager(DownloadManager $manager)
     {
@@ -157,7 +230,7 @@ class Composer
     }
 
     /**
-     * @return Downloader\DownloadManager
+     * @return DownloadManager
      */
     public function getDownloadManager()
     {
@@ -165,7 +238,7 @@ class Composer
     }
 
     /**
-     * @param ArchiveManager $manager
+     * @return void
      */
     public function setArchiveManager(ArchiveManager $manager)
     {
@@ -181,7 +254,7 @@ class Composer
     }
 
     /**
-     * @param Installer\InstallationManager $manager
+     * @return void
      */
     public function setInstallationManager(InstallationManager $manager)
     {
@@ -189,7 +262,7 @@ class Composer
     }
 
     /**
-     * @return Installer\InstallationManager
+     * @return InstallationManager
      */
     public function getInstallationManager()
     {
@@ -197,7 +270,7 @@ class Composer
     }
 
     /**
-     * @param Plugin\PluginManager $manager
+     * @return void
      */
     public function setPluginManager(PluginManager $manager)
     {
@@ -205,7 +278,7 @@ class Composer
     }
 
     /**
-     * @return Plugin\PluginManager
+     * @return PluginManager
      */
     public function getPluginManager()
     {
@@ -213,7 +286,7 @@ class Composer
     }
 
     /**
-     * @param EventDispatcher $eventDispatcher
+     * @return void
      */
     public function setEventDispatcher(EventDispatcher $eventDispatcher)
     {
@@ -229,7 +302,7 @@ class Composer
     }
 
     /**
-     * @param Autoload\AutoloadGenerator $autoloadGenerator
+     * @return void
      */
     public function setAutoloadGenerator(AutoloadGenerator $autoloadGenerator)
     {
@@ -237,7 +310,7 @@ class Composer
     }
 
     /**
-     * @return Autoload\AutoloadGenerator
+     * @return AutoloadGenerator
      */
     public function getAutoloadGenerator()
     {

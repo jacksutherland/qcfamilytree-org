@@ -8,18 +8,18 @@
 namespace craft\web\twig\tokenparsers;
 
 use craft\web\twig\nodes\CacheNode;
+use Twig\Parser;
+use Twig\Token;
+use Twig\TokenParser\AbstractTokenParser;
 
 /**
  * Class CacheTokenParser
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
-class CacheTokenParser extends \Twig_TokenParser
+class CacheTokenParser extends AbstractTokenParser
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @return string
      */
@@ -31,10 +31,12 @@ class CacheTokenParser extends \Twig_TokenParser
     /**
      * @inheritdoc
      */
-    public function parse(\Twig_Token $token)
+    public function parse(Token $token)
     {
         $lineno = $token->getLine();
-        $stream = $this->parser->getStream();
+        /** @var Parser $parser */
+        $parser = $this->parser;
+        $stream = $parser->getStream();
 
         $nodes = [];
 
@@ -44,21 +46,21 @@ class CacheTokenParser extends \Twig_TokenParser
             'durationUnit' => null,
         ];
 
-        if ($stream->test(\Twig_Token::NAME_TYPE, 'globally')) {
+        if ($stream->test(Token::NAME_TYPE, 'globally')) {
             $attributes['global'] = true;
             $stream->next();
         }
 
-        if ($stream->test(\Twig_Token::NAME_TYPE, 'using')) {
+        if ($stream->test(Token::NAME_TYPE, 'using')) {
             $stream->next();
-            $stream->expect(\Twig_Token::NAME_TYPE, 'key');
-            $nodes['key'] = $this->parser->getExpressionParser()->parseExpression();
+            $stream->expect(Token::NAME_TYPE, 'key');
+            $nodes['key'] = $parser->getExpressionParser()->parseExpression();
         }
 
-        if ($stream->test(\Twig_Token::NAME_TYPE, 'for')) {
+        if ($stream->test(Token::NAME_TYPE, 'for')) {
             $stream->next();
-            $attributes['durationNum'] = $stream->expect(\Twig_Token::NUMBER_TYPE)->getValue();
-            $attributes['durationUnit'] = $stream->expect(\Twig_Token::NAME_TYPE,
+            $attributes['durationNum'] = $stream->expect(Token::NUMBER_TYPE)->getValue();
+            $attributes['durationUnit'] = $stream->expect(Token::NAME_TYPE,
                 [
                     'sec',
                     'secs',
@@ -81,36 +83,36 @@ class CacheTokenParser extends \Twig_TokenParser
                     'year',
                     'years',
                     'week',
-                    'weeks'
+                    'weeks',
                 ])->getValue();
-        } else if ($stream->test(\Twig_Token::NAME_TYPE, 'until')) {
+        } elseif ($stream->test(Token::NAME_TYPE, 'until')) {
             $stream->next();
-            $nodes['expiration'] = $this->parser->getExpressionParser()->parseExpression();
+            $nodes['expiration'] = $parser->getExpressionParser()->parseExpression();
         }
 
-        if ($stream->test(\Twig_Token::NAME_TYPE, 'if')) {
+        if ($stream->test(Token::NAME_TYPE, 'if')) {
             $stream->next();
-            $nodes['conditions'] = $this->parser->getExpressionParser()->parseExpression();
-        } else if ($stream->test(\Twig_Token::NAME_TYPE, 'unless')) {
+            $nodes['conditions'] = $parser->getExpressionParser()->parseExpression();
+        } elseif ($stream->test(Token::NAME_TYPE, 'unless')) {
             $stream->next();
-            $nodes['ignoreConditions'] = $this->parser->getExpressionParser()->parseExpression();
+            $nodes['ignoreConditions'] = $parser->getExpressionParser()->parseExpression();
         }
 
-        $stream->expect(\Twig_Token::BLOCK_END_TYPE);
-        $nodes['body'] = $this->parser->subparse([
+        $stream->expect(Token::BLOCK_END_TYPE);
+        $nodes['body'] = $parser->subparse([
             $this,
-            'decideCacheEnd'
+            'decideCacheEnd',
         ], true);
-        $stream->expect(\Twig_Token::BLOCK_END_TYPE);
+        $stream->expect(Token::BLOCK_END_TYPE);
 
         return new CacheNode($nodes, $attributes, $lineno, $this->getTag());
     }
 
     /**
-     * @param \Twig_Token $token
+     * @param Token $token
      * @return bool
      */
-    public function decideCacheEnd(\Twig_Token $token): bool
+    public function decideCacheEnd(Token $token): bool
     {
         return $token->test('endcache');
     }

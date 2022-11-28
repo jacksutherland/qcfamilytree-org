@@ -28,11 +28,11 @@ class Timestamps
      *
      * The PHAR signature can then be produced in a reproducible manner.
      *
-     * @param int|DateTime|string $timestamp Date string or DateTime or unix timestamp to use
+     * @param int|\DateTimeInterface|string $timestamp Date string or DateTime or unix timestamp to use
      */
     public function updateTimestamps($timestamp = null)
     {
-        if ($timestamp instanceof \DateTime) {
+        if ($timestamp instanceof \DateTime || $timestamp instanceof \DateTimeInterface) {
             $timestamp = $timestamp->getTimestamp();
         } elseif (is_string($timestamp)) {
             $timestamp = strtotime($timestamp);
@@ -73,7 +73,11 @@ class Timestamps
             $pos += 4;
 
             // update timestamp to a fixed value
-            $this->contents = substr_replace($this->contents, pack('L', $timestamp), $pos, 4);
+            $timeStampBytes = pack('L', $timestamp);
+            $this->contents[$pos + 0] = $timeStampBytes[0];
+            $this->contents[$pos + 1] = $timeStampBytes[1];
+            $this->contents[$pos + 2] = $timeStampBytes[2];
+            $this->contents[$pos + 3] = $timeStampBytes[3];
 
             // skip timestamp, compressed file size, crc32 checksum and file flags
             $pos += 4*4;
@@ -127,7 +131,7 @@ class Timestamps
 
     private function readUint($pos, $bytes)
     {
-        $res = unpack("L", substr($this->contents, $pos, $bytes));
+        $res = unpack('V', substr($this->contents, $pos, $bytes));
 
         return $res[1];
     }
@@ -146,7 +150,7 @@ class Timestamps
 
         // set starting position and skip past manifest length
         $pos = $match[0][1] + strlen($match[0][0]);
-        $stubEnd = $pos + $this->readUint($pos, 4);
+        $manifestEnd = $pos + 4 + $this->readUint($pos, 4);
 
         $pos += 4;
         $numFiles = $this->readUint($pos, 4);
@@ -166,7 +170,7 @@ class Timestamps
         $pos += 4 + $metadataLength;
 
         $compressedSizes = 0;
-        while ($pos < $stubEnd) {
+        while (($numFiles > 0) && ($pos < $manifestEnd - 24)) {
             $filenameLength = $this->readUint($pos, 4);
             $pos += 4 + $filenameLength;
 
@@ -187,6 +191,6 @@ class Timestamps
             throw new \LogicException('All files were not processed, something must have gone wrong');
         }
 
-        return $pos + $compressedSizes;
+        return $manifestEnd + $compressedSizes;
     }
 }

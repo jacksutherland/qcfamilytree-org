@@ -1,0 +1,41 @@
+field: 53caff22-2ce8-4149-83e4-74b104ad4bb6
+fieldLayouts:
+  f39fd030-22bb-48b4-85ef-55d9c2a6c1e1:
+    tabs:
+      -
+        fields:
+          b403fbdb-81cb-4b47-9c0a-aac7e4d219ee:
+            required: true
+            sortOrder: 1
+        name: Content
+        sortOrder: 1
+fields:
+  b403fbdb-81cb-4b47-9c0a-aac7e4d219ee:
+    contentColumnType: string
+    fieldGroup: null
+    handle: image
+    instructions: ''
+    name: Image
+    searchable: true
+    settings:
+      allowedKinds:
+        - image
+      defaultUploadLocationSource: 'volume:2d5ef627-3d40-4895-8113-2ccae0a01303'
+      defaultUploadLocationSubpath: ''
+      limit: '1'
+      localizeRelations: false
+      restrictFiles: '1'
+      selectionLabel: ''
+      singleUploadLocationSource: 'volume:2d5ef627-3d40-4895-8113-2ccae0a01303'
+      singleUploadLocationSubpath: ''
+      source: null
+      sources: '*'
+      targetSiteId: null
+      useSingleFolder: '1'
+      viewMode: list
+    translationKeyFormat: null
+    translationMethod: site
+    type: craft\fields\Assets
+handle: bannerImage
+name: 'Banner Image'
+sortOrder: 1

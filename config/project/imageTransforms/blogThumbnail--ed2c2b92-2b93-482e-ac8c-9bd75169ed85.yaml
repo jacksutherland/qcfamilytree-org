@@ -1,0 +1,9 @@
+format: null
+handle: blogThumbnail
+height: 300
+interlace: none
+mode: crop
+name: 'Blog Thumbnail'
+position: center-center
+quality: null
+width: 300

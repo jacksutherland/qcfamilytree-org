@@ -12,6 +12,8 @@
 
 namespace Composer\Json;
 
+use Composer\Pcre\Preg;
+
 /**
  * Formats json strings used for php < 5.4 because the json_encode doesn't
  * supports the flags JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE
@@ -58,17 +60,25 @@ class JsonFormatter
                 $buffer .= $char;
                 $noescape = '\\' === $char ? !$noescape : true;
                 continue;
-            } elseif ('' !== $buffer) {
+            }
+            if ('' !== $buffer) {
                 if ($unescapeSlashes) {
                     $buffer = str_replace('\\/', '/', $buffer);
                 }
 
                 if ($unescapeUnicode && function_exists('mb_convert_encoding')) {
                     // https://stackoverflow.com/questions/2934563/how-to-decode-unicode-escape-sequences-like-u00ed-to-proper-utf-8-encoded-cha
-                    $buffer = preg_replace_callback('/(\\\\+)u([0-9a-f]{4})/i', function ($match) {
+                    $buffer = Preg::replaceCallback('/(\\\\+)u([0-9a-f]{4})/i', function ($match) {
                         $l = strlen($match[1]);
 
                         if ($l % 2) {
+                            $code = hexdec($match[2]);
+                            // 0xD800..0xDFFF denotes UTF-16 surrogate pair which won't be unescaped
+                            // see https://github.com/composer/composer/issues/7510
+                            if (0xD800 <= $code && 0xDFFF >= $code) {
+                                return $match[0];
+                            }
+
                             return str_repeat('\\', $l - 1) . mb_convert_encoding(
                                 pack('H*', $match[2]),
                                 'UTF-8',
@@ -88,7 +98,7 @@ class JsonFormatter
             if (':' === $char) {
                 // Add a space after the : character
                 $char .= ' ';
-            } elseif (('}' === $char || ']' === $char)) {
+            } elseif ('}' === $char || ']' === $char) {
                 $pos--;
                 $prevChar = substr($json, $i - 1, 1);
 

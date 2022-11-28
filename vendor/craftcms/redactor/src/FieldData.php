@@ -8,6 +8,8 @@
 namespace craft\redactor;
 
 use Craft;
+use craft\htmlfield\HtmlFieldData;
+use Twig\Markup;
 
 /**
  * Stores the data for Redactor fields.
@@ -15,76 +17,29 @@ use Craft;
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @since 3.0
  */
-class FieldData extends \Twig_Markup
+class FieldData extends HtmlFieldData
 {
-    // Properties
-    // =========================================================================
-
     /**
-     * @var
+     * @var Markup[]|null
      */
     private $_pages;
 
     /**
-     * @var string|null
-     */
-    private $_rawContent;
-
-    // Public Methods
-    // =========================================================================
-
-    /**
-     * Constructor
-     *
-     * @param string $content
-     */
-    public function __construct(string $content)
-    {
-        // Save the raw content in case we need it later
-        $this->_rawContent = $content;
-
-        // Parse the ref tags
-        $content = Craft::$app->getElements()->parseRefs($content);
-
-        parent::__construct($content, Craft::$app->charset);
-    }
-
-    /**
-     * Returns the raw content, with reference tags still in-tact.
-     *
-     * @return string
-     */
-    public function getRawContent(): string
-    {
-        return $this->_rawContent;
-    }
-
-    /**
-     * Returns the parsed content, with reference tags returned as HTML links.
-     *
-     * @return string
-     */
-    public function getParsedContent(): string
-    {
-        return (string)$this;
-    }
-
-    /**
      * Returns an array of the individual page contents.
      *
-     * @return \Twig_Markup[]
+     * @return Markup[]
      */
     public function getPages(): array
     {
-        if ($this->_pages !== null) {
+        if (isset($this->_pages)) {
             return $this->_pages;
         }
 
         $this->_pages = [];
-        $pages = explode('<!--pagebreak-->', (string)$this);
+        $pages = explode('<!--pagebreak-->', $this->getParsedContent());
 
         foreach ($pages as $page) {
-            $this->_pages[] = new \Twig_Markup($page, Craft::$app->charset);
+            $this->_pages[] = new Markup($page, Craft::$app->charset);
         }
 
         return $this->_pages;

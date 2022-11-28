@@ -13,6 +13,7 @@
 namespace Composer\Command;
 
 use Composer\Json\JsonFile;
+use Composer\Package\CompletePackageInterface;
 use Composer\Plugin\CommandEvent;
 use Composer\Plugin\PluginEvents;
 use Composer\Package\PackageInterface;
@@ -21,30 +22,39 @@ use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * @author Benoît Merlet <benoit.merlet@gmail.com>
  */
 class LicensesCommand extends BaseCommand
 {
+    /**
+     * @return void
+     */
     protected function configure()
     {
         $this
             ->setName('licenses')
             ->setDescription('Shows information about licenses of dependencies.')
             ->setDefinition(array(
-                new InputOption('format', 'f', InputOption::VALUE_REQUIRED, 'Format of the output: text or json', 'text'),
+                new InputOption('format', 'f', InputOption::VALUE_REQUIRED, 'Format of the output: text, json or summary', 'text'),
                 new InputOption('no-dev', null, InputOption::VALUE_NONE, 'Disables search in require-dev packages.'),
             ))
-            ->setHelp(<<<EOT
+            ->setHelp(
+                <<<EOT
 The license command displays detailed information about the licenses of
 the installed dependencies.
 
+Read more at https://getcomposer.org/doc/03-cli.md#licenses
 EOT
             )
         ;
     }
 
+    /**
+     * @return int
+     */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $composer = $this->getComposer();
@@ -74,14 +84,21 @@ EOT
 
                 $table = new Table($output);
                 $table->setStyle('compact');
-                $table->getStyle()->setVerticalBorderChar('');
-                $table->getStyle()->setCellRowContentFormat('%s  ');
-                $table->setHeaders(array('Name', 'Version', 'License'));
+                $tableStyle = $table->getStyle();
+                if (method_exists($tableStyle, 'setVerticalBorderChars')) {
+                    $tableStyle->setVerticalBorderChars('');
+                } else {
+                    // TODO remove in composer 2.2
+                    // @phpstan-ignore-next-line
+                    $tableStyle->setVerticalBorderChar('');
+                }
+                $tableStyle->setCellRowContentFormat('%s  ');
+                $table->setHeaders(array('Name', 'Version', 'Licenses'));
                 foreach ($packages as $package) {
                     $table->addRow(array(
                         $package->getPrettyName(),
                         $package->getFullPrettyVersion(),
-                        implode(', ', $package->getLicense()) ?: 'none',
+                        implode(', ', $package instanceof CompletePackageInterface ? $package->getLicense() : array()) ?: 'none',
                     ));
                 }
                 $table->render();
@@ -92,7 +109,7 @@ EOT
                 foreach ($packages as $package) {
                     $dependencies[$package->getPrettyName()] = array(
                         'version' => $package->getFullPrettyVersion(),
-                        'license' => $package->getLicense(),
+                        'license' => $package instanceof CompletePackageInterface ? $package->getLicense() : array(),
                     );
                 }
 
@@ -104,18 +121,47 @@ EOT
                 )));
                 break;
 
+            case 'summary':
+                $usedLicenses = array();
+                foreach ($packages as $package) {
+                    $licenses = $package instanceof CompletePackageInterface ? $package->getLicense() : array();
+                    if (count($licenses) === 0) {
+                        $licenses[] = 'none';
+                    }
+                    foreach ($licenses as $licenseName) {
+                        if (!isset($usedLicenses[$licenseName])) {
+                            $usedLicenses[$licenseName] = 0;
+                        }
+                        $usedLicenses[$licenseName]++;
+                    }
+                }
+
+                // Sort licenses so that the most used license will appear first
+                arsort($usedLicenses, SORT_NUMERIC);
+
+                $rows = array();
+                foreach ($usedLicenses as $usedLicense => $numberOfDependencies) {
+                    $rows[] = array($usedLicense, $numberOfDependencies);
+                }
+
+                $symfonyIo = new SymfonyStyle($input, $output);
+                $symfonyIo->table(
+                    array('License', 'Number of dependencies'),
+                    $rows
+                );
+                break;
             default:
                 throw new \RuntimeException(sprintf('Unsupported format "%s".  See help for supported formats.', $format));
         }
+
+        return 0;
     }
 
     /**
      * Find package requires and child requires
      *
-     * @param  RepositoryInterface $repo
-     * @param  PackageInterface    $package
-     * @param  array               $bucket
-     * @return array
+     * @param  array<string, PackageInterface> $bucket
+     * @return array<string, PackageInterface>
      */
     private function filterRequiredPackages(RepositoryInterface $repo, PackageInterface $package, $bucket = array())
     {
@@ -141,9 +187,9 @@ EOT
     /**
      * Adds packages to the package list
      *
-     * @param  array $packages the list of packages to add
-     * @param  array $bucket   the list to add packages to
-     * @return array
+     * @param  PackageInterface[]              $packages the list of packages to add
+     * @param  array<string, PackageInterface> $bucket   the list to add packages to
+     * @return array<string, PackageInterface>
      */
     public function appendPackages(array $packages, array $bucket)
     {

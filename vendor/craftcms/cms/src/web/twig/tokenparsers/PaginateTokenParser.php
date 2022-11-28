@@ -8,42 +8,46 @@
 namespace craft\web\twig\tokenparsers;
 
 use craft\web\twig\nodes\PaginateNode;
+use Twig\Node\Expression\AssignNameExpression;
+use Twig\Parser;
+use Twig\Token;
+use Twig\TokenParser\AbstractTokenParser;
 
 /**
  * Paginates elements via an [[\craft\elements\db\ElementQuery]] instance.
  *
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
-class PaginateTokenParser extends \Twig_TokenParser
+class PaginateTokenParser extends AbstractTokenParser
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
-    public function parse(\Twig_Token $token)
+    public function parse(Token $token)
     {
         $lineno = $token->getLine();
+        /** @var Parser $parser */
+        $parser = $this->parser;
+        $stream = $parser->getStream();
 
         $nodes = [
-            'criteria' => $this->parser->getExpressionParser()->parseExpression()
+            'query' => $parser->getExpressionParser()->parseExpression(),
         ];
-        $this->parser->getStream()->expect('as');
-        $targets = $this->parser->getExpressionParser()->parseAssignmentExpression();
-        $this->parser->getStream()->expect(\Twig_Token::BLOCK_END_TYPE);
+        $stream->expect('as');
+        $targets = $parser->getExpressionParser()->parseAssignmentExpression();
+        $stream->expect(Token::BLOCK_END_TYPE);
 
         if (count($targets) > 1) {
-            $paginateTarget = $targets->getNode(0);
-            $nodes['paginateTarget'] = new \Twig_Node_Expression_AssignName($paginateTarget->getAttribute('name'), $paginateTarget->getTemplateLine());
-            $elementsTarget = $targets->getNode(1);
+            $infoVariable = $targets->getNode(0);
+            $nodes['infoVariable'] = new AssignNameExpression($infoVariable->getAttribute('name'), $infoVariable->getTemplateLine());
+            $resultVariable = $targets->getNode(1);
         } else {
-            $nodes['paginateTarget'] = new \Twig_Node_Expression_AssignName('paginate', $lineno);
-            $elementsTarget = $targets->getNode(0);
+            $nodes['infoVariable'] = new AssignNameExpression('paginate', $lineno);
+            $resultVariable = $targets->getNode(0);
         }
 
-        $nodes['elementsTarget'] = new \Twig_Node_Expression_AssignName($elementsTarget->getAttribute('name'), $elementsTarget->getTemplateLine());
+        $nodes['resultVariable'] = new AssignNameExpression($resultVariable->getAttribute('name'), $resultVariable->getTemplateLine());
 
         return new PaginateNode($nodes, [], $lineno, $this->getTag());
     }

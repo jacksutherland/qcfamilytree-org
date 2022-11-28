@@ -8,6 +8,7 @@
 namespace craft\records;
 
 use craft\db\ActiveRecord;
+use craft\db\Table;
 use yii\db\ActiveQueryInterface;
 
 /**
@@ -22,20 +23,17 @@ use yii\db\ActiveQueryInterface;
  * @property CategoryGroup $group Group
  * @property Site $site Site
  * @author Pixel & Tonic, Inc. <support@pixelandtonic.com>
- * @since 3.0
+ * @since 3.0.0
  */
 class CategoryGroup_SiteSettings extends ActiveRecord
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      * @return string
      */
     public static function tableName(): string
     {
-        return '{{%categorygroups_sites}}';
+        return Table::CATEGORYGROUPS_SITES;
     }
 
     /**

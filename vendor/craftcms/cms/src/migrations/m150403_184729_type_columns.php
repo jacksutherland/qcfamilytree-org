@@ -3,6 +3,7 @@
 namespace craft\migrations;
 
 use craft\db\Migration;
+use craft\db\Table;
 use yii\db\Expression;
 
 /**
@@ -10,9 +11,6 @@ use yii\db\Expression;
  */
 class m150403_184729_type_columns extends Migration
 {
-    // Public Methods
-    // =========================================================================
-
     /**
      * @inheritdoc
      */
@@ -25,18 +23,18 @@ class m150403_184729_type_columns extends Migration
                     '{{%assetsources}}',
                 ],
                 'classes' => [
-                    'GoogleCloud',
+                    'GoogleCloud' => 'craft\googlecloud\Volume',
                     'Local',
-                    'Rackspace',
-                    'S3',
-                ]
+                    'Rackspace' => 'craft\rackspace\Volume',
+                    'S3' => 'craft\awss3\Volume',
+                ],
             ],
             [
                 'namespace' => 'craft\elements',
                 'tables' => [
-                    '{{%elements}}',
-                    '{{%elementindexsettings}}',
-                    '{{%fieldlayouts}}',
+                    Table::ELEMENTS,
+                    Table::ELEMENTINDEXSETTINGS,
+                    Table::FIELDLAYOUTS,
                     '{{%templatecachecriteria}}',
                 ],
                 'classes' => [
@@ -47,12 +45,12 @@ class m150403_184729_type_columns extends Migration
                     'MatrixBlock',
                     'Tag',
                     'User',
-                ]
+                ],
             ],
             [
                 'namespace' => 'craft\fields',
                 'tables' => [
-                    '{{%fields}}',
+                    Table::FIELDS,
                 ],
                 'classes' => [
                     'Assets',
@@ -69,16 +67,16 @@ class m150403_184729_type_columns extends Migration
                     'PlainText',
                     'PositionSelect',
                     'RadioButtons',
-                    'RichText',
+                    'RichText' => 'craft\redactor\Field',
                     'Table',
                     'Tags',
                     'Users',
-                ]
+                ],
             ],
             [
                 'namespace' => 'craft\widgets',
                 'tables' => [
-                    '{{%widgets}}',
+                    Table::WIDGETS,
                 ],
                 'classes' => [
                     'Feed',
@@ -87,20 +85,35 @@ class m150403_184729_type_columns extends Migration
                     'QuickPost',
                     'RecentEntries',
                     'Updates',
-                ]
+                ],
             ],
         ];
 
         foreach ($componentTypes as $componentType) {
+            $nativeTypes = [];
+            $pluginTypes = [];
+
+            foreach ($componentType['classes'] as $key => $value) {
+                if (is_numeric($key)) {
+                    $nativeTypes[] = $value;
+                } else {
+                    $pluginTypes[$key] = $value;
+                }
+            }
+
             $columns = [
-                'type' => new Expression('concat(\'' . addslashes($componentType['namespace'] . '\\') . '\', type)')
+                'type' => new Expression('concat(\'' . addslashes($componentType['namespace'] . '\\') . '\', type)'),
             ];
 
-            $condition = ['type' => $componentType['classes']];
+            $condition = ['type' => $nativeTypes];
 
             foreach ($componentType['tables'] as $table) {
                 $this->alterColumn($table, 'type', $this->string()->notNull());
                 $this->update($table, $columns, $condition, [], false);
+
+                foreach ($pluginTypes as $oldType => $newType) {
+                    $this->update($table, ['type' => $newType], ['type' => $oldType], [], false);
+                }
             }
         }
 
